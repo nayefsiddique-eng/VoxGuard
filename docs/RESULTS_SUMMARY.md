@@ -40,6 +40,11 @@ Sanity checks running physical byte checks and waveform diagnostics on raw FLAC 
 ---
 
 ## 3. Dynamic Challenge-Response Class Separation Gaps
+
+> [!WARNING]
+> **INVALID - DO NOT CITE FOR REPORT RESULTS**
+> This table is based on synthetic stand-in voices (gTTS/pyttsx3) rather than real human voice recordings paired with custom voice clones. It is presented solely for descriptive pipeline verification and should not be cited as a baseline statistical result.
+
 **Metric Definition**: The "Separation Gap" represents the statistical difference (mean ± standard deviation) computed across **N=10 distinct pairs** (10 Human stand-in sources vs 10 voice clone/spoof sources) per category.
 *Important Setup Change*: In this version, both the Human and Clone files speak the **exact matching challenge phrases** (digits, whispers, latency prompts) synthesized locally.
 - **Human Stand-in**: Generated using `gTTS` (natural Google Text-to-Speech accent).
