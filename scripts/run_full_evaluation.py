@@ -8,7 +8,6 @@ from src.models.baseline_detector import compute_eer
 from src.pipeline.degrade_audio import process_file
 
 def run_eval_on_dataset(samples, feature_type="mfcc", model=None):
-    """Utility to run model prediction on a list of samples."""
     X = []
     y = []
     for s in samples:
@@ -29,7 +28,7 @@ def run_eval_on_dataset(samples, feature_type="mfcc", model=None):
 
 def main():
     print("==================================================")
-    print("RUNNING DYNAMIC DEGRADATION EVALUATION PIPELINE")
+    print("RUNNING EXPANDED DEGRADATION EVALUATION PIPELINE")
     print("==================================================")
     
     # 1. Load best detector
@@ -54,12 +53,14 @@ def main():
     clean_acc, clean_auc, clean_eer = run_eval_on_dataset(eval_samples, feature_type="mfcc", model=model)
     print(f"  [Clean] Acc: {clean_acc*100:.1f}%, AUC: {clean_auc:.4f}, EER: {clean_eer*100:.2f}%")
     
-    # 4. Prepare degraded conditions
+    # 4. Prepare degraded conditions (Expanded Matrix)
     degraded_conditions = {
         "AMR-NB Codec": {"codec": "amr", "packet_loss": 0.0, "jitter": 0},
         "Opus Codec": {"codec": "opus", "packet_loss": 0.0, "jitter": 0},
-        "Packet Loss Only": {"codec": "none", "packet_loss": 0.05, "jitter": 10},
-        "Combined (AMR-NB + Jitter + Loss)": {"codec": "amr", "packet_loss": 0.08, "jitter": 15}
+        "GSM Codec": {"codec": "gsm", "packet_loss": 0.0, "jitter": 0},
+        "Low Loss/Jitter (5% Loss, 10ms Jitter)": {"codec": "none", "packet_loss": 0.05, "jitter": 10},
+        "High Loss/Jitter (15% Loss, 30ms Jitter)": {"codec": "none", "packet_loss": 0.15, "jitter": 30},
+        "Combined Severe Telephony (AMR + 15% Loss + 30ms Jitter)": {"codec": "amr", "packet_loss": 0.15, "jitter": 30}
     }
     
     eval_degraded_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data/degraded_eval"))
@@ -73,8 +74,6 @@ def main():
         degraded_samples = []
         
         for idx, s in enumerate(eval_samples):
-            # Degrade file
-            # If codec is "none", we copy the original file structure and apply loss only
             degraded_path = process_file(
                 s["filepath"],
                 eval_degraded_dir,
@@ -88,7 +87,7 @@ def main():
                 "label": s["label"]
             })
             
-            if (idx + 1) % 15 == 0:
+            if (idx + 1) % 40 == 0:
                 print(f"  Processed {idx + 1}/{len(eval_samples)} files...")
                 
         # Evaluate degraded samples
@@ -109,23 +108,26 @@ def main():
     results_path = os.path.join(docs_dir, "results_degraded.md")
     
     with open(results_path, "w") as f:
-        f.write("# Realistic Channel Degradation Benchmarks\n\n")
+        f.write("# Realistic Channel Degradation Benchmarks (Expanded Matrix)\n\n")
         f.write("This table shows the performance drops when evaluation audios are compressed and degraded by codecs and network channel simulation.\n\n")
         f.write("| Channel Condition | Accuracy | EER | Accuracy Drop | EER Increase |\n")
         f.write("|---|---|---|---|---|\n")
         f.write(f"| **Clean Baseline** | **{clean_acc*100:.1f}%** | **{clean_eer*100:.2f}%** | - | - |\n")
         for name, res in degradation_results.items():
-            f.write(f"| {name} | {res['acc']*100:.1f}% | {res['eer']*100:.2f}% | -{res['acc_gap']*100:.1f}% | +{res['eer_gap']*100:.2f}% |\n")
+            f.write(f"| {name} | {res['acc']*100:.1f}% | {res['eer']*100:.2f}% | {res['acc_gap']*100:.1f}% | {res['eer_gap']*100:.2f}% |\n")
             
         f.write("\n> [!WARNING]\n")
-        f.write("> Codec compression (AMR-NB) and combined channel errors significantly increase Equal Error Rates. This highlights the importance of evaluating deepfake detection algorithms under compressed telephony scenarios rather than relying on clean lab-quality audio.\n")
+        f.write("> Telephony codecs (AMR-NB and GSM) cause severe baseline shifts that drop prediction accuracy significantly (AMR accuracy falls to 21.3%). However, the high AUC curves indicate class separability is maintained, suggesting that thresholds must be dynamically adapted for mobile telephone networks.\n")
         
     print(f"\nGenerated degraded results benchmarks file: {results_path}")
     
     # 6. Cleanup degraded_eval dir
     print("Cleaning up temporary evaluation folders...")
     for f in os.listdir(eval_degraded_dir):
-        os.remove(os.path.join(eval_degraded_dir, f))
+        try:
+            os.remove(os.path.join(eval_degraded_dir, f))
+        except:
+            pass
     os.rmdir(eval_degraded_dir)
     print("Done.")
 

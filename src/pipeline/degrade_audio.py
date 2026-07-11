@@ -64,7 +64,7 @@ def degrade_ffmpeg(input_path, output_path, codec="amr"):
                 os.remove(temp_encoded + ".amr")
                 
         elif codec == "opus":
-            # Encode to low bitrate Opus (6kbps) simulating low bandwidth VoIP
+            # Encode to low-bitrate Opus (6kbps) simulating low bandwidth VoIP
             subprocess.run([
                 ffmpeg_cmd, "-y", "-i", input_path,
                 "-c:a", "libopus", "-b:a", "6k", "-vbr", "on",
@@ -79,6 +79,23 @@ def degrade_ffmpeg(input_path, output_path, codec="amr"):
             
             if os.path.exists(temp_encoded + ".opus"):
                 os.remove(temp_encoded + ".opus")
+                
+        elif codec == "gsm":
+            # Encode to GSM full rate (requires 8000Hz sample rate, mono)
+            subprocess.run([
+                ffmpeg_cmd, "-y", "-i", input_path,
+                "-codec:a", "gsm", "-ar", "8000", "-ac", "1",
+                temp_encoded + ".gsm"
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Decode back to 16kHz WAV
+            subprocess.run([
+                ffmpeg_cmd, "-y", "-i", temp_encoded + ".gsm",
+                "-ar", "16000", output_path
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            if os.path.exists(temp_encoded + ".gsm"):
+                os.remove(temp_encoded + ".gsm")
         return True
     except Exception as e:
         print(f"  [ffmpeg degradation failed: {e}] Falling back to python degradation.")
@@ -96,7 +113,7 @@ def degrade_python_fallback(input_path, output_path, codec="amr"):
 
     data, sr = sf.read(input_path)
     
-    if codec == "amr":
+    if codec == "amr" or codec == "gsm":
         # Standard telephone line filter (300Hz - 3400Hz)
         nyq = 0.5 * sr
         low = 300 / nyq
