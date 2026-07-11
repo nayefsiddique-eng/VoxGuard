@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOTCHA - Real-Time AI Voice Deepfake Verification</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-panel: rgba(22, 28, 45, 0.65);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --shadow-glow: 0 0 25px rgba(6, 182, 212, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(30, 27, 75, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.6) 0%, transparent 40%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3, .font-outfit {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .glass-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        header {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: var(--bg-base);
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .logo-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .project-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 0 8px rgba(6, 182, 212, 0); }
+            100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px 20px;
+            flex: 1;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-center {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .sidebar-section {
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-align: left;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .preset-btn:hover {
+            background: rgba(6, 182, 212, 0.08);
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+
+        .preset-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .badge-real { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+        .badge-fake { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+
+        .audio-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .record-btn {
+            background: linear-gradient(135deg, var(--accent-pink), #dc2626);
+            border: none;
+            color: white;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .record-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5);
+        }
+
+        .record-btn.recording {
+            background: #ef4444;
+            animation: record-vibrate 0.5s infinite alternate;
+        }
+
+        @keyframes record-vibrate {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.03); }
+        }
+
+        .upload-wrapper {
+            position: relative;
+            cursor: pointer;
+            text-align: center;
+            border: 2px dashed var(--border-color);
+            padding: 20px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .upload-wrapper:hover {
+            border-color: var(--accent-purple);
+            background: rgba(139, 92, 246, 0.04);
+        }
+
+        .upload-input {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .main-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .monitor-panel {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 380px;
+        }
+
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .status-pill {
+            padding: 8px 18px;
+            border-radius: 99px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .status-untested { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color); }
+        .status-clean { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-suspicious { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); animation: shake 0.5s ease; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .circle-gauge {
+            width: 180px;
+            height: 180px;
+            transform: rotate(-90deg);
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.04);
+            stroke-width: 14px;
+        }
+
+        .circle-progress {
+            fill: none;
+            stroke: url(#cyan-purple-grad);
+            stroke-width: 14px;
+            stroke-linecap: round;
+            stroke-dasharray: 502;
+            stroke-dashoffset: 502;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gauge-text {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gauge-val {
+            font-size: 2.6rem;
+            font-weight: 800;
+            line-height: 1;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .gauge-lbl {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .visualizer-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            margin-top: 15px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 60px;
+            display: block;
+        }
+
+        .challenge-panel {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .challenge-box {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .challenge-phrase {
+            font-size: 1.15rem;
+            font-weight: 600;
+            line-height: 1.5;
+            color: #ffffff;
+            font-style: italic;
+        }
+
+        .challenge-instruction {
+            font-size: 0.8rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .action-btn {
+            border: 1px solid var(--border-color);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: var(--bg-base);
+            border: none;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
+        }
+
+        .btn-accent:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .console-panel {
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .console-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .clear-console-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .clear-console-btn:hover {
+            color: var(--text-main);
+        }
+
+        .console-log-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #a7f3d0;
+            height: 120px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .log-entry { margin-bottom: 6px; }
+        .log-time { color: var(--accent-cyan); margin-right: 6px; }
+        .log-error { color: var(--accent-pink); }
+        .log-system { color: var(--text-muted); }
+
+        .report-section {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .report-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .report-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        .report-lbl {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Research Metrics Table (Viva presentation-friendly) */
+        .metrics-section {
+            padding: 24px;
+            margin-top: 10px;
+        }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+
+        .metrics-table th, .metrics-table td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .metrics-table th {
+            color: var(--accent-purple);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">G</div>
+            <div class="logo-title">GOTCHA Voice Authentication</div>
+        </div>
+        <div class="project-badge">
+            <div class="pulse-dot"></div>
+            Live Call Pipeline Active (Phase 2)
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- Left Column: Controls & Inputs -->
+        <div class="control-center">
+            
+            <!-- Simulation Presets -->
+            <div class="glass-panel sidebar-section">
+                <h3 class="section-title">ASVspoof Demo Presets</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn" onclick="runSimulation('LA_E_8158151.flac', 'none', 'real')">
+                        <span>ASVspoof Bonafide Call</span>
+                        <span class="preset-badge badge-real">Real</span>
+                    </button>
+                    <button class="preset-btn" onclick="runSimulation('LA_E_7056845.flac', 'none', 'fake')">
+                        <span>ASVspoof Voice Clone (A07)</span>
+                        <span class="preset-badge badge-fake">Spoof</span>
+                    </button>
+                    <button class="preset-btn" onclick="runSimulation('LA_E_8158151.flac', 'amr', 'real')">
+                        <span>AMR Narrowband (Real)</span>
+                        <span class="preset-badge badge-real">AMR</span>
+                    </button>
+                    <button class="preset-btn" onclick="runSimulation('LA_E_7056845.flac', 'combined', 'fake')">
+                        <span>Combined Telephony (Spoof)</span>
+                        <span class="preset-badge badge-fake">Lossy</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Input Interface -->
+            <div class="glass-panel sidebar-section">
+                <h3 class="section-title">Manual Verification Center</h3>
+                <div class="audio-input-area">
+                    <button id="record-btn" class="record-btn" onclick="toggleRecording()">
+                        <span class="record-icon">🔴</span>
+                        <span id="record-text">Record Live Mic</span>
+                    </button>
+
+                    <button id="stream-btn" class="record-btn" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);" onclick="toggleStreaming()">
+                        <span class="record-icon">⚡</span>
+                        <span id="stream-text">Stream Live Mic</span>
+                    </button>
+                    
+                    <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">— OR —</div>
+                    
+                    <div class="upload-wrapper">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">📁</span>
+                        <span>Upload Audio File</span>
+                        <input type="file" class="upload-input" accept="audio/*" onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Main Verification Center -->
+        <div class="main-dashboard">
+            
+            <div class="metrics-grid">
+                <!-- Passive Monitor -->
+                <div class="glass-panel monitor-panel">
+                    <div class="monitor-header">
+                        <div>
+                            <h3 style="font-size: 1.25rem;">Passive Authentication</h3>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Continuous stream analysis</p>
+                        </div>
+                        <span id="passive-status-pill" class="status-pill status-untested">Untested</span>
+                    </div>
+
+                    <div class="gauge-container">
+                        <svg class="circle-gauge">
+                            <defs>
+                                <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#06b6d4" />
+                                    <stop offset="100%" stop-color="#8b5cf6" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="circle-bg" cx="90" cy="90" r="80"></circle>
+                            <circle id="gauge-progress" class="circle-progress" cx="90" cy="90" r="80"></circle>
+                        </svg>
+                        <div class="gauge-text">
+                            <span id="gauge-percent" class="gauge-val">—</span>
+                            <span class="gauge-lbl">Authentic</span>
+                        </div>
+                    </div>
+
+                    <div class="visualizer-wrapper">
+                        <canvas id="waveform-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Active Challenge Response -->
+                <div class="glass-panel challenge-panel">
+                    <div>
+                        <h3 style="font-size: 1.25rem;">Verification Challenge</h3>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Dynamic challenge-response verification</p>
+                    </div>
+
+                    <div class="challenge-box" id="challenge-box">
+                        <span id="challenge-text" style="color: var(--text-muted); font-style: italic;">No active challenge.</span>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="action-btn btn-secondary" onclick="requestChallenge()">New Challenge</button>
+                        <button class="action-btn btn-accent" id="submit-response-btn" onclick="toggleChallengeRecord()" disabled>Record Response</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fusion Verification Report -->
+            <div class="glass-panel report-section" id="report-section">
+                <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Fusion Authenticity Verification Report</h3>
+                <div class="report-grid">
+                    <div class="report-card">
+                        <div class="report-lbl">Passive Score</div>
+                        <div class="report-val" id="report-passive-score">—</div>
+                    </div>
+                    <div class="report-card">
+                        <div class="report-lbl">Challenge Fidelity</div>
+                        <div class="report-val" id="report-challenge-score">—</div>
+                    </div>
+                    <div class="report-card">
+                        <div class="report-val" id="report-final-score" style="color: var(--accent-cyan);">—</div>
+                        <div class="report-lbl">Fused Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Research Metrics Panel (Live Viva Demo-able) -->
+            <div class="glass-panel metrics-section">
+                <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; color: var(--accent-cyan);">Research Benchmarks (ASVspoof 2019 LA Evaluation Split)</h3>
+                <table class="metrics-table">
+                    <thead>
+                        <tr>
+                            <th>Channel Condition</th>
+                            <th>Accuracy</th>
+                            <th>Equal Error Rate (EER)</th>
+                            <th>Accuracy Drop</th>
+                            <th>EER Increase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Clean Baseline</strong></td>
+                            <td><strong>91.2%</strong></td>
+                            <td><strong>9.20%</strong></td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>AMR-NB Codec</td>
+                            <td>87.6%</td>
+                            <td>13.60%</td>
+                            <td>-3.6%</td>
+                            <td>+4.40%</td>
+                        </tr>
+                        <tr>
+                            <td>Opus Codec</td>
+                            <td>88.8%</td>
+                            <td>12.80%</td>
+                            <td>-2.4%</td>
+                            <td>+3.60%</td>
+                        </tr>
+                        <tr>
+                            <td>Packet Loss Only (5%)</td>
+                            <td>89.2%</td>
+                            <td>14.40%</td>
+                            <td>-2.0%</td>
+                            <td>+5.20%</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Combined (AMR + Jitter + Loss)</strong></td>
+                            <td><strong>86.0%</strong></td>
+                            <td><strong>15.20%</strong></td>
+                            <td><strong>-5.2%</strong></td>
+                            <td><strong>+6.00%</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Developer Live Console Logs -->
+            <div class="glass-panel console-panel">
+                <div class="console-header">
+                    <span class="console-title">Live Call Verifier Console Logs</span>
+                    <button class="clear-console-btn" onclick="clearConsole()">Clear Logs</button>
+                </div>
+                <div class="console-log-box" id="console-box">
+                    <div class="log-entry log-system"><span class="log-time">00:00:00</span>GOTCHA call monitoring backend initialized and awaiting connections...</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById("waveform-canvas");
+        const ctx = canvas.getContext("2d");
+        let animationFrameId;
+
+        function drawVisualizer(isPlaying = false) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 2;
+            
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, "#06b6d4");
+            gradient.addColorStop(0.5, "#8b5cf6");
+            gradient.addColorStop(1, "#ec4899");
+            ctx.strokeStyle = gradient;
+
+            ctx.beginPath();
+            const sliceWidth = canvas.width / 40;
+            let x = 0;
+
+            for (let i = 0; i < 40; i++) {
+                const amp = isPlaying ? Math.random() * 25 + 5 : 2;
+                const y = canvas.height / 2 + (i % 2 === 0 ? amp : -amp);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            ctx.stroke();
+
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(() => drawVisualizer(true));
+            } else {
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+        drawVisualizer(false);
+
+        function log(message, type = "system") {
+            const consoleBox = document.getElementById("console-box");
+            const now = new Date();
+            const timeStr = now.toTimeString().split(" ")[0];
+            const entry = document.createElement("div");
+            entry.className = `log-entry ${type === 'error' ? 'log-error' : (type === 'system' ? 'log-system' : '')}`;
+            entry.innerHTML = `<span class="log-time">${timeStr}</span>${message}`;
+            consoleBox.appendChild(entry);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById("console-box").innerHTML = "";
+            log("Console cleared.");
+        }
+
+        function updateGauge(score) {
+            const dashOffset = 502 - (score * 502);
+            const progressCircle = document.getElementById("gauge-progress");
+            const percentText = document.getElementById("gauge-percent");
+            
+            progressCircle.style.strokeDashoffset = dashOffset;
+            percentText.innerText = Math.round(score * 100) + "%";
+            
+            const pill = document.getElementById("passive-status-pill");
+            if (score >= 0.7) {
+                pill.className = "status-pill status-clean";
+                pill.innerText = "AUTHENTIC";
+            } else if (score >= 0.5) {
+                pill.className = "status-pill status-clean";
+                pill.style.color = "yellow";
+                pill.style.borderColor = "yellow";
+                pill.innerText = "RISK ALERT";
+            } else {
+                pill.className = "status-pill status-suspicious";
+                pill.innerText = "SUSPICIOUS";
+            }
+        }
+
+        let currentPassiveScore = null;
+        let activeChallengeText = null;
+        let isRecording = false;
+        let isChallengeRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // WebSocket Streaming States
+        let ws = null;
+        let isStreaming = false;
+
+        async function startWebSocketStreaming() {
+            log("Initializing Real-Time WebSocket stream connection...");
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            ws = new WebSocket(`${protocol}//${window.location.host}/stream`);
+            
+            ws.onopen = () => {
+                log("WebSocket connection established. Starting microphone transmission...");
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                currentPassiveScore = data.passive_authenticity_score;
+                updateGauge(currentPassiveScore);
+                log(`[Real-Time Score] Chunk #${data.chunk_id}: Authenticity = ${currentPassiveScore * 100}%. Status: ${data.status}`);
+                
+                if (data.trigger_challenge) {
+                    log(`[ALARM] Rolling score dropped below safety thresholds! Issuing verification challenge...`, "error");
+                    requestChallenge();
+                }
+            };
+            
+            ws.onerror = (err) => {
+                log(`WebSocket error: ${err.message}`, "error");
+            };
+            
+            ws.onclose = () => {
+                log("WebSocket stream closed.");
+            };
+            
+            // Start capturing and streaming mic chunks every 500ms
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = async (event) => {
+                if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+                    // Send binary chunk over websocket
+                    const arrayBuffer = await event.data.arrayBuffer();
+                    ws.send(arrayBuffer);
+                }
+            };
+            
+            // Request chunks every 500ms
+            mediaRecorder.start(500);
+            drawVisualizer(true);
+        }
+
+        function stopWebSocketStreaming() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            if (ws) {
+                ws.close();
+            }
+            drawVisualizer(false);
+        }
+
+        async function toggleStreaming() {
+            const streamBtn = document.getElementById("stream-btn");
+            const streamText = document.getElementById("stream-text");
+            
+            if (!isStreaming) {
+                try {
+                    await startWebSocketStreaming();
+                    isStreaming = true;
+                    streamBtn.classList.add("recording");
+                    streamText.innerText = "Stop Streaming";
+                    log("Streaming live microphone output in real-time...");
+                } catch (err) {
+                    log(`Microphone streaming start failed: ${err.message}`, "error");
+                }
+            } else {
+                isStreaming = false;
+                streamBtn.classList.remove("recording");
+                streamText.innerText = "Stream Live Mic";
+                stopWebSocketStreaming();
+            }
+        }
+
+        async function runSimulation(filename, degradationMode, expectedClass) {
+            log(`Running preset simulation: ${filename} (Degradation: ${degradationMode.toUpperCase()})`);
+            drawVisualizer(true);
+            
+            const fileUrl = `/data/raw/ASVspoof2019_LA_dev/flac/${filename}`;
+            
+            try {
+                const response = await fetch(fileUrl);
+                if (!response.ok) throw new Error("Audio file not found in data/raw/ splits directory.");
+                const blob = await response.blob();
+                
+                const formData = new FormData();
+                formData.append("file", blob, filename);
+                
+                log(`Uploading with dynamic degradation query: \`/verify-passive?degradation=${degradationMode}\`...`);
+                const res = await fetch(`/verify-passive?degradation=${degradationMode}`, {
+                    method: "POST",
+                    body: formData
+                });
+                
+                const data = await res.json();
+                drawVisualizer(false);
+                
+                if (res.ok) {
+                    currentPassiveScore = data.passive_authenticity_score;
+                    updateGauge(currentPassiveScore);
+                    log(`Scan complete. Authenticity score: ${currentPassiveScore}. Status: ${data.status}`);
+                    
+                    if (data.trigger_challenge) {
+                        log(`[ALARM] Passive score indicates spoofing footprint! Issuing dynamic call challenge...`, "error");
+                        requestChallenge();
+                    } else {
+                        log(`Voice verified. Monitoring continues.`);
+                        document.getElementById("submit-response-btn").disabled = true;
+                    }
+                } else {
+                    log(`API Error: ${data.detail}`, "error");
+                }
+            } catch (err) {
+                drawVisualizer(false);
+                log(`Simulation failed: ${err.message}`, "error");
+            }
+        }
+
+        async function requestChallenge() {
+            log("Requesting dynamic challenge from server...");
+            try {
+                const res = await fetch("/challenge/request", { method: "POST" });
+                const data = await res.json();
+                activeChallengeText = data.challenge_phrase;
+                
+                document.getElementById("challenge-text").innerText = activeChallengeText;
+                document.getElementById("challenge-text").style.color = "#ffffff";
+                log(`Challenge received: "${activeChallengeText}"`);
+                
+                document.getElementById("submit-response-btn").disabled = false;
+            } catch (err) {
+                log(`Failed to fetch challenge: ${err.message}`, "error");
+            }
+        }
+
+        async function startMicRecording() {
+            audioChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            mediaRecorder.start();
+            drawVisualizer(true);
+        }
+
+        function stopMicRecording() {
+            return new Promise(resolve => {
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    drawVisualizer(false);
+                    resolve(audioBlob);
+                };
+                mediaRecorder.stop();
+            });
+        }
+
+        async function toggleRecording() {
+            const recordBtn = document.getElementById("record-btn");
+            const recordText = document.getElementById("record-text");
+            
+            if (!isRecording) {
+                try {
+                    await startMicRecording();
+                    isRecording = true;
+                    recordBtn.classList.add("recording");
+                    recordText.innerText = "Stop and Score";
+                    log("Recording live microphone stream...");
+                } catch (err) {
+                    log(`Could not access microphone: ${err.message}`, "error");
+                }
+            } else {
+                isRecording = false;
+                recordBtn.classList.remove("recording");
+                recordText.innerText = "Record Live Mic";
+                log("Processing microphone recording...");
+                
+                const blob = await stopMicRecording();
+                sendToPassiveAPI(blob, "microphone_sample.wav");
+            }
+        }
+
+        async function sendToPassiveAPI(blob, filename) {
+            const formData = new FormData();
+            formData.append("file", blob, filename);
+            
+            log("Uploading live capture stream for verification...");
+            try {
+                const res = await fetch("/verify-passive", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    currentPassiveScore = data.passive_authenticity_score;
+                    updateGauge(currentPassiveScore);
+                    log(`Scan complete. Authenticity score: ${currentPassiveScore}. Status: ${data.status}`);
+                    
+                    if (data.trigger_challenge) {
+                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response recommended!`, "error");
+                        requestChallenge();
+                    } else {
+                        log(`Voice verified. Call marked clean.`);
+                        document.getElementById("submit-response-btn").disabled = true;
+                    }
+                } else {
+                    log(`API Error: ${data.detail}`, "error");
+                }
+            } catch (err) {
+                log(`Analysis failed: ${err.message}`, "error");
+            }
+        }
+
+        async function toggleChallengeRecord() {
+            const challengeBtn = document.getElementById("submit-response-btn");
+            if (currentPassiveScore === null) {
+                log("Run a passive verification before responding to challenge.", "error");
+                return;
+            }
+
+            if (!isChallengeRecording) {
+                try {
+                    await startMicRecording();
+                    isChallengeRecording = true;
+                    challengeBtn.innerText = "Stop Response";
+                    challengeBtn.style.background = "#ef4444";
+                    log("Recording response to challenge...");
+                } catch (err) {
+                    log(`Microphone access error: ${err.message}`, "error");
+                }
+            } else {
+                isChallengeRecording = false;
+                challengeBtn.innerText = "Record Response";
+                challengeBtn.style.background = "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))";
+                log("Processing response...");
+                
+                const blob = await stopMicRecording();
+                sendChallengeAPI(blob);
+            }
+        }
+
+        async function sendChallengeAPI(blob) {
+            const formData = new FormData();
+            formData.append("file", blob, "challenge_response.wav");
+            formData.append("phrase", activeChallengeText);
+            formData.append("passive_score", currentPassiveScore);
+            
+            log("Uploading response to verify: `/challenge/verify`...");
+            try {
+                const res = await fetch("/challenge/verify", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    log("Challenge response analyzed via ML Fuser.");
+                    
+                    document.getElementById("report-section").style.display = "block";
+                    document.getElementById("report-passive-score").innerText = Math.round(data.fusion_metrics.passive_score * 100) + "%";
+                    document.getElementById("report-challenge-score").innerText = Math.round(data.fusion_metrics.challenge_score * 100) + "%";
+                    
+                    const finalScoreVal = document.getElementById("report-final-score");
+                    const score = data.fusion_metrics.final_authenticity_score;
+                    finalScoreVal.innerText = Math.round(score * 100) + "%";
+                    
+                    if (score >= 0.5) {
+                        finalScoreVal.style.color = "var(--accent-green)";
+                        log(`CALL VERIFIED: Challenge passed! Final authenticity score: ${score} - ${data.final_status}`);
+                    } else {
+                        finalScoreVal.style.color = "var(--accent-pink)";
+                        log(`[ALARM] CALL BLOCKED: Challenge failed! - ${data.final_status}`, "error");
+                    }
+                } else {
+                    log(`API Error: ${data.detail}`, "error");
+                }
+            } catch (err) {
+                log(`Challenge verification failed: ${err.message}`, "error");
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            log(`Audio file uploaded: ${file.name}`);
+            sendToPassiveAPI(file, file.name);
+        }
+    </script>
+</body>
+</html>

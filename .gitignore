@@ -1,0 +1,27 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Datasets and Large Audio Files
+data/raw/
+data/features/
+data/degraded/
+data/degraded_eval/
+data/challenges/
+temp_*.wav
+temp_*.webm
+
+# Notebooks & Local Checkpoints
+.ipynb_checkpoints/
+.idea/
+.vscode/
+
+# Ignore compiled models (optional, but keep detector.pkl if small)
+# src/models/*.pkl
