@@ -59,3 +59,14 @@ To ensure academic rigor, this changelog documents the three stages this challen
 2. **Stage 2 (N=10 Mismatched-Content)**: Expanded to 10 pairs per category. However, the human and clone files were mapped to unrelated ASVspoof clean files reading generic sentences. The content did not match the issued challenge phrase, rendering the verification logic invalid for live call defense.
 3. **Stage 3 (N=10 Phrase-Matched Stand-Ins)**: Corrected the code to ensure both files spoken match the issued challenge exactly. Due to the lack of real human recordings and local cloning models during early CPU iterations, gTTS (Google TTS) was used as the human stand-in, and pyttsx3 (SAPI5) as the clone. Because the passive spoof detector flagged the gTTS audio's synthetic envelope, the human score dropped from 90% to 42%, narrowing the separation gap.
 4. **Planned Stage 4 (Future Work)**: Collect real human voice recordings from the user and synthesize cloned responses using local matching-content voice cloning models (e.g., Coqui TTS) to recompute authentic, validated speaker-cloned separation gaps.
+
+---
+
+## 5. Non-Monotonic Channel Mismatch Phenomenon (AMR-NB Case Study)
+Under a single global decision threshold of `0.7943`, we observe a counter-intuitive behavior: evaluating the baseline classifier under the AMR-NB codec alone yields a lower overall accuracy (`39.7%`) than Combined Severe Telephony degradation (`72.3%`) which stacks AMR-NB with 15% packet loss and 30ms jitter.
+
+### Analysis of Score Distributions
+This phenomenon is documented in the generated score distributions plot: [score_distributions.png](file:///c:/Users/Admin%20pc/Desktop/voice%20detection/voice-deepfake-verify/docs/score_distributions.png).
+- **AMR-NB Codec Only**: Applying bandpass filtering (300Hz-3400Hz) and bit quantization preserves the smooth voice contour envelopes. However, the compression shifts the extracted MFCC speaker coefficients of spoofed (fake) files upwards toward the authentic region. Since the evaluation split is heavily unbalanced (125 fakes vs. 16 reals), this upward score drift causes 85 out of 125 spoof files to leak past the `0.7943` threshold (False Positives), dropping overall accuracy to `39.7%`.
+- **Combined Telephony (AMR + Loss + Jitter)**: Stacking packet drops (15%) and jitter delays introduces sharp silence gaps and block discontinuities in the audio waveform. This severe distortion breaks the acoustic footprint, causing the classifier's output probabilities to fall dramatically. Consequently, the spoof scores shift back down below the `0.7943` decision boundary, correctly blocking 87 out of 125 fakes (True Negatives) and raising the overall accuracy to `72.3%`.
+

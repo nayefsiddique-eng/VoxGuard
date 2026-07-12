@@ -800,6 +800,7 @@
                                 <div class="gauge-readout">
                                     <span id="gauge-val" class="gauge-number">—</span>
                                     <span class="gauge-title" title="Confidence accuracy boundary">CONFIDENCE</span>
+                                    <div id="preset-warning-note" style="color: var(--accent-orange); font-size: 0.7rem; text-align: center; margin-top: 10px; font-weight: 600; max-width: 190px; line-height: 1.3;"></div>
                                 </div>
                             </div>
                         </div>
@@ -1189,6 +1190,15 @@
                 if (i === index) b.classList.add("btn-active");
                 else b.classList.remove("btn-active");
             });
+            
+            const warnElement = document.getElementById("preset-warning-note");
+            if (index === 3) {
+                warnElement.innerText = "⚠️ AMR-NB compression shifts fake scores up, causing spoof leakage at the clean threshold (39.7% acc).";
+                addClientLog("SYSTEM", "Warning: AMR codec degradation triggered. Shift in classification scores expected.", "WARNING");
+            } else {
+                warnElement.innerText = "";
+            }
+            
             const p = PRESETS[index];
             runPreset(p.file, p.degradation);
         }
@@ -1211,6 +1221,7 @@
             document.getElementById("challenge-prompt-text").innerHTML = "No verification challenge currently active.";
             document.getElementById("challenge-prompt-text").style.color = "var(--text-muted)";
             document.getElementById("btn-record-challenge").disabled = true;
+            document.getElementById("preset-warning-note").innerText = "";
             setGaugeScore(0.0);
             setStepProgress(1, "");
             setStepProgress(2, "");
