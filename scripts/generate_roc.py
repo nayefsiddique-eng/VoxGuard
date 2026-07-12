@@ -3,9 +3,9 @@ import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
-from src.features.load_dataset import get_split_dataset
-from src.features.extract_features import extract_features
-from src.pipeline.degrade_audio import process_file
+from src.backend.features.load_dataset import get_split_dataset
+from src.backend.features.extract_features import extract_features
+from src.backend.pipeline.degrade_audio import process_file
 
 def get_probabilities(samples, codec, packet_loss, jitter, model):
     X, y_true = [], []

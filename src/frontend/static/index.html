@@ -3,24 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoxGuard - Real-Time AI Voice Deepfake Verification</title>
+    <title>VoxGuard — Deepfake Call Verification Console</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #080c14;
-            --bg-panel: rgba(17, 24, 39, 0.7);
+            --bg-base: #060913;
+            --bg-panel: rgba(13, 20, 35, 0.7);
             --border-color: rgba(255, 255, 255, 0.08);
             --accent-cyan: #06b6d4;
             --accent-purple: #8b5cf6;
             --accent-pink: #ec4899;
             --accent-green: #10b981;
             --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
-            --shadow-glow: 0 0 25px rgba(6, 182, 212, 0.15);
+            --shadow-glow: 0 0 25px rgba(6, 182, 212, 0.12);
+            --border-radius-sm: 8px;
+            --border-radius-md: 12px;
+            --border-radius-lg: 16px;
+            --transition-speed: 0.25s;
         }
 
         * {
@@ -34,35 +41,42 @@
             background-color: var(--bg-base);
             color: var(--text-main);
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(30, 27, 75, 0.45) 0%, transparent 45%),
-                radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.6) 0%, transparent 45%);
+                radial-gradient(circle at 10% 20%, rgba(30, 27, 75, 0.4) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.55) 0%, transparent 45%);
             min-height: 100vh;
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
+            line-height: 1.5;
         }
 
         h1, h2, h3, .font-outfit {
             font-family: 'Outfit', sans-serif;
+            font-weight: 700;
         }
 
         .glass-panel {
             background: var(--bg-panel);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: var(--border-radius-lg);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.6);
         }
 
         header {
-            padding: 16px 40px;
+            padding: 18px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            background: rgba(8, 12, 20, 0.85);
+            background: rgba(6, 9, 19, 0.85);
             backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
@@ -76,21 +90,21 @@
         }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-            border-radius: 12px;
+            border-radius: var(--border-radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
             color: #ffffff;
-            font-size: 1.3rem;
+            font-size: 1.35rem;
             box-shadow: var(--shadow-glow);
         }
 
         .logo-title {
-            font-size: 1.45rem;
+            font-size: 1.5rem;
             font-weight: 700;
             background: linear-gradient(to right, #ffffff, var(--accent-cyan));
             -webkit-background-clip: text;
@@ -99,10 +113,10 @@
 
         .nav-tabs {
             display: flex;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.03);
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.02);
             padding: 4px;
-            border-radius: 10px;
+            border-radius: var(--border-radius-md);
             border: 1px solid var(--border-color);
         }
 
@@ -110,17 +124,18 @@
             background: none;
             border: none;
             color: var(--text-muted);
-            padding: 8px 18px;
-            border-radius: 8px;
+            padding: 8px 20px;
+            border-radius: var(--border-radius-sm);
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all var(--transition-speed) ease;
         }
 
         .nav-tab-btn.active {
             background: var(--accent-purple);
             color: #ffffff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
         }
 
         .nav-tab-btn:hover:not(.active) {
@@ -128,7 +143,33 @@
             background: rgba(255, 255, 255, 0.05);
         }
 
-        /* Container & Grids */
+        .project-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.02);
+            padding: 6px 14px;
+            border-radius: 99px;
+            border: 1px solid var(--border-color);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-ring 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.85); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            100% { transform: scale(1.15); box-shadow: 0 0 8px 3px rgba(16, 185, 129, 0.2); }
+        }
+
+        /* Container & Layout */
         .app-content {
             max-width: 1440px;
             width: 100%;
@@ -148,7 +189,7 @@
         /* Demo Grid */
         .demo-layout {
             display: grid;
-            grid-template-columns: 350px 1fr;
+            grid-template-columns: 360px 1fr;
             gap: 24px;
         }
 
@@ -158,88 +199,116 @@
             }
         }
 
-        /* Steps Flow Tracker */
-        .steps-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
+        /* Steps Timeline Flow Tracker */
+        .steps-timeline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
             margin-bottom: 24px;
         }
 
-        .step-card {
-            padding: 16px;
+        .step-node {
+            flex: 1;
+            padding: 16px 20px;
             display: flex;
             align-items: center;
             gap: 14px;
             border: 1px solid var(--border-color);
             background: rgba(255, 255, 255, 0.01);
+            position: relative;
         }
 
-        .step-card.active {
+        .step-node.active {
             border-color: var(--accent-cyan);
-            background: rgba(6, 182, 212, 0.05);
+            background: rgba(6, 182, 212, 0.04);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.08);
         }
 
-        .step-card.suspicious {
+        .step-node.suspicious {
             border-color: var(--accent-red);
-            background: rgba(239, 68, 68, 0.05);
+            background: rgba(239, 68, 68, 0.04);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.08);
             animation: shake 0.5s ease;
         }
 
-        .step-card.success {
+        .step-node.success {
             border-color: var(--accent-green);
-            background: rgba(16, 185, 129, 0.05);
+            background: rgba(16, 185, 129, 0.04);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.08);
         }
 
-        .step-num {
-            width: 28px;
-            height: 28px;
+        .step-circle {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             color: var(--text-muted);
             border: 1px solid var(--border-color);
+            transition: all var(--transition-speed) ease;
         }
 
-        .step-card.active .step-num {
+        .step-node.active .step-circle {
             background: var(--accent-cyan);
             color: var(--bg-base);
             border-color: var(--accent-cyan);
         }
 
-        .step-card.suspicious .step-num {
+        .step-node.suspicious .step-circle {
             background: var(--accent-red);
             color: #ffffff;
             border-color: var(--accent-red);
         }
 
-        .step-card.success .step-num {
+        .step-node.success .step-circle {
             background: var(--accent-green);
             color: var(--bg-base);
             border-color: var(--accent-green);
         }
 
-        .step-info {
+        .step-content {
             display: flex;
             flex-direction: column;
         }
 
-        .step-title {
-            font-size: 0.95rem;
+        .step-label {
+            font-size: 0.98rem;
             font-weight: 700;
+            font-family: 'Outfit', sans-serif;
         }
 
-        .step-desc {
-            font-size: 0.75rem;
+        .step-status {
+            font-size: 0.78rem;
             color: var(--text-muted);
             margin-top: 2px;
         }
 
-        /* Left Side Controls */
+        .step-divider {
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            font-weight: 300;
+            opacity: 0.4;
+            user-select: none;
+        }
+
+        @media (max-width: 768px) {
+            .steps-timeline {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .step-divider {
+                text-align: center;
+                transform: rotate(90deg);
+                margin: 4px 0;
+            }
+        }
+
+        /* Left Sidebar Controls */
         .control-center {
             display: flex;
             flex-direction: column;
@@ -251,8 +320,8 @@
         }
 
         .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.15rem;
+            font-weight: 700;
             margin-bottom: 18px;
             display: flex;
             align-items: center;
@@ -263,8 +332,8 @@
         }
 
         .preset-grid {
-            display: grid;
-            grid-template-columns: 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 12px;
         }
 
@@ -272,29 +341,31 @@
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            padding: 12px 16px;
-            border-radius: 12px;
+            padding: 14px 18px;
+            border-radius: var(--border-radius-md);
             cursor: pointer;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 0.9rem;
             text-align: left;
-            transition: all 0.2s ease;
+            transition: all var(--transition-speed) ease;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         .preset-btn:hover {
-            background: rgba(6, 182, 212, 0.08);
+            background: rgba(6, 182, 212, 0.06);
             border-color: var(--accent-cyan);
             transform: translateY(-2px);
         }
 
         .preset-badge {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             padding: 2px 8px;
             border-radius: 4px;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .badge-real { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
@@ -303,33 +374,53 @@
         .audio-input-area {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 16px;
         }
 
-        .record-btn {
-            background: linear-gradient(135deg, var(--accent-pink), #dc2626);
+        .action-btn-main {
             border: none;
             color: white;
             padding: 14px;
-            border-radius: 12px;
-            font-weight: 600;
+            border-radius: var(--border-radius-md);
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
-            transition: all 0.3s ease;
+            transition: all var(--transition-speed) ease;
+            font-size: 0.95rem;
         }
 
-        .record-btn:hover {
+        .btn-record {
+            background: linear-gradient(135deg, var(--accent-pink), #dc2626);
+            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.25);
+        }
+
+        .btn-record:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5);
+            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
         }
 
-        .record-btn.recording {
-            background: #ef4444;
-            animation: record-vibrate 0.5s infinite alternate;
+        .btn-record.recording {
+            background: var(--accent-red);
+            animation: pulse-recording 1s infinite alternate;
+        }
+
+        @keyframes pulse-recording {
+            0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+            100% { transform: scale(1.02); box-shadow: 0 0 15px 4px rgba(239, 68, 68, 0.35); }
+        }
+
+        .btn-stream {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.25);
+        }
+
+        .btn-stream:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
         }
 
         .upload-wrapper {
@@ -337,9 +428,9 @@
             cursor: pointer;
             text-align: center;
             border: 2px dashed var(--border-color);
-            padding: 20px;
-            border-radius: 12px;
-            transition: all 0.2s ease;
+            padding: 24px;
+            border-radius: var(--border-radius-md);
+            transition: all var(--transition-speed) ease;
         }
 
         .upload-wrapper:hover {
@@ -354,7 +445,7 @@
             cursor: pointer;
         }
 
-        /* Right Side Dashboard */
+        /* Right Dashboard Columns */
         .main-dashboard {
             display: flex;
             flex-direction: column;
@@ -363,7 +454,7 @@
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: 1.2fr 1fr;
+            grid-template-columns: 1.25fr 1fr;
             gap: 24px;
         }
 
@@ -378,46 +469,45 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 380px;
+            min-height: 400px;
         }
 
         .monitor-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
         }
 
         .status-pill {
-            padding: 8px 18px;
+            padding: 8px 20px;
             border-radius: 99px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 700;
-            text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid transparent;
         }
 
-        .status-untested { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color); }
-        .status-clean { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
-        .status-suspicious { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); animation: shake 0.5s ease; }
+        .status-untested { background: rgba(255,255,255,0.04); color: var(--text-muted); border-color: var(--border-color); }
+        .status-clean { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.25); }
+        .status-suspicious { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.25); animation: shake 0.5s ease; }
 
         .gauge-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 30px 0;
+            margin: 24px 0;
             position: relative;
         }
 
         .circle-gauge {
-            width: 180px;
-            height: 180px;
+            width: 190px;
+            height: 190px;
             transform: rotate(-90deg);
         }
 
         .circle-bg {
             fill: none;
-            stroke: rgba(255, 255, 255, 0.04);
+            stroke: rgba(255, 255, 255, 0.03);
             stroke-width: 14px;
         }
 
@@ -428,7 +518,7 @@
             stroke-linecap: round;
             stroke-dasharray: 502;
             stroke-dashoffset: 502;
-            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .gauge-text {
@@ -440,31 +530,34 @@
         }
 
         .gauge-val {
-            font-size: 2.6rem;
+            font-size: 2.8rem;
             font-weight: 800;
             line-height: 1;
             font-family: 'Outfit', sans-serif;
+            background: linear-gradient(to right, #ffffff, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .gauge-lbl {
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
             margin-top: 4px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            font-weight: 600;
         }
 
         .visualizer-wrapper {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            padding: 10px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: var(--border-radius-md);
+            padding: 12px;
             border: 1px solid var(--border-color);
-            margin-top: 15px;
         }
 
         canvas {
             width: 100%;
-            height: 60px;
+            height: 50px;
             display: block;
         }
 
@@ -473,15 +566,16 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            min-height: 400px;
         }
 
         .challenge-box {
-            background: rgba(0, 0, 0, 0.15);
+            background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            min-height: 120px;
+            border-radius: var(--border-radius-md);
+            padding: 24px;
+            margin: 18px 0;
+            min-height: 130px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -490,35 +584,26 @@
         }
 
         .challenge-phrase {
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 600;
             line-height: 1.5;
             color: #ffffff;
             font-style: italic;
         }
 
-        .challenge-instruction {
-            font-size: 0.8rem;
-            color: var(--accent-purple);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
-            font-weight: 600;
-        }
-
         .btn-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 12px;
         }
 
         .action-btn {
             border: 1px solid var(--border-color);
             padding: 12px 18px;
-            border-radius: 10px;
+            border-radius: var(--border-radius-md);
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all var(--transition-speed) ease;
             font-size: 0.9rem;
             display: flex;
             align-items: center;
@@ -527,85 +612,116 @@
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.02);
             color: var(--text-main);
         }
 
         .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .btn-accent {
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
             color: var(--bg-base);
             border: none;
-            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
         }
 
-        .btn-accent:hover {
+        .btn-accent:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+            box-shadow: 0 6px 18px rgba(6, 182, 212, 0.35);
+        }
+
+        .btn-accent:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         /* Fusion Verdict Report */
         .report-section {
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 18px;
-            margin-top: 10px;
+            border-radius: var(--border-radius-lg);
+            padding: 24px;
+            margin-top: 8px;
             display: none;
+        }
+
+        .report-title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 16px;
         }
 
         .report-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-top: 10px;
+            gap: 16px;
+        }
+
+        @media (max-width: 640px) {
+            .report-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
 
         .report-card {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
-            padding: 12px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: var(--border-radius-md);
             text-align: center;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .report-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
         }
 
         .report-val {
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             font-weight: 700;
             color: #ffffff;
             margin-top: 4px;
+            font-family: 'Outfit', sans-serif;
         }
 
         .report-lbl {
-            font-size: 0.7rem;
+            font-size: 0.72rem;
             color: var(--text-muted);
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
         }
 
-        /* Console */
+        /* Live Console Logger */
         .console-panel {
-            padding: 20px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            min-height: 200px;
+            min-height: 220px;
         }
 
         .console-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         .console-title {
-            font-size: 0.9rem;
-            font-weight: 600;
+            font-size: 0.95rem;
+            font-weight: 700;
             color: var(--accent-purple);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            font-family: 'Outfit', sans-serif;
         }
 
         .clear-console-btn {
@@ -613,23 +729,29 @@
             border: none;
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .clear-console-btn:hover {
+            color: #ffffff;
         }
 
         .console-log-box {
-            background: rgba(0, 0, 0, 0.35);
+            background: rgba(4, 6, 12, 0.6);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: var(--border-radius-md);
+            padding: 16px;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.85rem;
             color: #a7f3d0;
-            height: 120px;
+            height: 140px;
             overflow-y: auto;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
 
-        .log-entry { margin-bottom: 4px; }
-        .log-time { color: var(--accent-cyan); margin-right: 6px; }
+        .log-entry { margin-bottom: 6px; line-height: 1.4; }
+        .log-time { color: var(--accent-cyan); margin-right: 8px; font-weight: 600; }
         .log-error { color: var(--accent-pink); }
         .log-system { color: var(--text-muted); }
 
@@ -653,13 +775,13 @@
         .metrics-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
+            margin-top: 14px;
             font-size: 0.88rem;
         }
 
         .metrics-table th, .metrics-table td {
             text-align: left;
-            padding: 12px;
+            padding: 14px;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -668,6 +790,7 @@
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.75rem;
+            letter-spacing: 0.5px;
         }
 
         /* SVG Confusion Matrix Grid styling */
@@ -675,7 +798,7 @@
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 18px;
         }
 
         .cm-toggle-bar {
@@ -683,7 +806,7 @@
             gap: 6px;
             background: rgba(255, 255, 255, 0.02);
             padding: 4px;
-            border-radius: 8px;
+            border-radius: var(--border-radius-md);
             border: 1px solid var(--border-color);
             align-self: flex-start;
         }
@@ -692,68 +815,76 @@
             background: none;
             border: none;
             color: var(--text-muted);
-            padding: 6px 14px;
-            border-radius: 6px;
+            padding: 6px 16px;
+            border-radius: var(--border-radius-sm);
             font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
+            transition: all var(--transition-speed) ease;
         }
 
         .cm-toggle-btn.active {
             background: var(--accent-cyan);
             color: var(--bg-base);
+            box-shadow: 0 3px 8px rgba(6, 182, 212, 0.25);
         }
 
         .confusion-matrix-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 12px;
+            gap: 14px;
             width: 100%;
-            max-width: 440px;
+            max-width: 460px;
             margin: 0 auto;
         }
 
         .cm-cell {
-            padding: 20px;
-            border-radius: 12px;
+            padding: 24px;
+            border-radius: var(--border-radius-md);
             border: 1px solid var(--border-color);
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            transition: all var(--transition-speed) ease;
         }
 
-        .cm-cell.cell-tp { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
-        .cm-cell.cell-tn { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
-        .cm-cell.cell-fp { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
-        .cm-cell.cell-fn { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
+        .cm-cell.cell-tp { background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.2); }
+        .cm-cell.cell-tn { background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.2); }
+        .cm-cell.cell-fp { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.2); }
+        .cm-cell.cell-fn { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.2); }
+
+        .cm-cell:hover {
+            transform: scale(1.02);
+        }
 
         .cm-cell-label {
             font-size: 0.72rem;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .cm-cell-val {
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 800;
             color: #ffffff;
             margin-top: 4px;
+            font-family: 'Outfit', sans-serif;
         }
 
         .cm-cell-pct {
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             color: var(--text-muted);
             margin-top: 2px;
         }
 
         .chart-row {
             display: grid;
-            grid-template-columns: 1fr 1.2fr;
+            grid-template-columns: 1fr 1.25fr;
             gap: 24px;
             margin-top: 24px;
         }
@@ -772,21 +903,58 @@
         .image-card img {
             max-width: 100%;
             height: auto;
-            border-radius: 12px;
+            border-radius: var(--border-radius-md);
             border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .image-card img:hover {
+            transform: scale(1.01);
         }
 
         .alert-bar {
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            border-radius: 8px;
-            padding: 12px 18px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: var(--border-radius-md);
+            padding: 14px 20px;
             margin-bottom: 24px;
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             color: #fbbf24;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        /* Pulse Loading state overlay for visual response */
+        .loading-pulse-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(6, 9, 19, 0.7);
+            border-radius: inherit;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .pulse-loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(6, 182, 212, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent-cyan);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
         }
     </style>
 </head>
@@ -794,7 +962,7 @@
 
     <header>
         <div class="logo-container">
-            <div class="logo-icon">V</div>
+            <div class="logo-icon">🛡️</div>
             <div class="logo-title">VoxGuard</div>
         </div>
         <div class="nav-tabs">
@@ -812,27 +980,29 @@
         <!-- TAB 1: LIVE DEMO MONITOR -->
         <div class="tab-panel active" id="panel-demo">
             
-            <!-- Pipeline Step Flow Tracker -->
-            <div class="steps-container">
-                <div class="glass-panel step-card active" id="step1-card">
-                    <div class="step-num">1</div>
-                    <div class="step-info">
-                        <span class="step-title">Passive Monitor</span>
-                        <span class="step-desc" id="step1-desc">Idle. Waiting for audio input...</span>
+            <!-- Connected Steps Flow Tracker -->
+            <div class="steps-timeline">
+                <div class="glass-panel step-node active" id="step1-card">
+                    <div class="step-circle">1</div>
+                    <div class="step-content">
+                        <span class="step-label">Passive Scan</span>
+                        <span class="step-status" id="step1-desc">Idle. Waiting for audio input...</span>
                     </div>
                 </div>
-                <div class="glass-panel step-card" id="step2-card">
-                    <div class="step-num">2</div>
-                    <div class="step-info">
-                        <span class="step-title">Dynamic Challenge</span>
-                        <span class="step-desc" id="step2-desc">Inactive. Triggered on alert.</span>
+                <div class="step-divider">➔</div>
+                <div class="glass-panel step-node" id="step2-card">
+                    <div class="step-circle">2</div>
+                    <div class="step-content">
+                        <span class="step-label">Spontaneous Challenge</span>
+                        <span class="step-status" id="step2-desc">Inactive. Triggered on alert.</span>
                     </div>
                 </div>
-                <div class="glass-panel step-card" id="step3-card">
-                    <div class="step-num">3</div>
-                    <div class="step-info">
-                        <span class="step-title">Fusion Verdict</span>
-                        <span class="step-desc" id="step3-desc">Awaiting decision.</span>
+                <div class="step-divider">➔</div>
+                <div class="glass-panel step-node" id="step3-card">
+                    <div class="step-circle">3</div>
+                    <div class="step-content">
+                        <span class="step-label">Score Fusion Verdict</span>
+                        <span class="step-status" id="step3-desc">Awaiting decision.</span>
                     </div>
                 </div>
             </div>
@@ -841,7 +1011,7 @@
                 <!-- Left Side Controls -->
                 <div class="control-center">
                     <div class="glass-panel sidebar-section">
-                        <h3 class="section-title">ASVspoof Demo Presets</h3>
+                        <h3 class="section-title">ASVspoof Presets</h3>
                         <div class="preset-grid">
                             <button class="preset-btn" onclick="runSimulation('LA_E_9691199.flac', 'none', 'real')">
                                 <span>Real Human Audio</span>
@@ -865,21 +1035,21 @@
                     <div class="glass-panel sidebar-section">
                         <h3 class="section-title">Manual Verification</h3>
                         <div class="audio-input-area">
-                            <button id="record-btn" class="record-btn" onclick="toggleRecording()">
+                            <button id="record-btn" class="action-btn-main btn-record" onclick="toggleRecording()">
                                 <span class="record-icon">🔴</span>
                                 <span id="record-text">Record Live Mic</span>
                             </button>
 
-                            <button id="stream-btn" class="record-btn" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);" onclick="toggleStreaming()">
+                            <button id="stream-btn" class="action-btn-main btn-stream" onclick="toggleStreaming()">
                                 <span class="record-icon">⚡</span>
                                 <span id="stream-text">Stream Live Mic</span>
                             </button>
                             
-                            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">— OR —</div>
+                            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; font-weight: 500;">— OR —</div>
                             
                             <div class="upload-wrapper">
-                                <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">📁</span>
-                                <span>Upload Audio File</span>
+                                <span style="font-size: 1.6rem; display: block; margin-bottom: 6px;">📁</span>
+                                <span style="font-weight: 600; font-size: 0.88rem;">Upload Audio File</span>
                                 <input type="file" class="upload-input" accept="audio/*" onchange="handleFileUpload(event)">
                             </div>
                         </div>
@@ -890,7 +1060,11 @@
                 <div class="main-dashboard">
                     <div class="metrics-grid">
                         <!-- Passive Monitor Panel -->
-                        <div class="glass-panel monitor-panel">
+                        <div class="glass-panel monitor-panel" style="position: relative;">
+                            <div class="loading-pulse-overlay" id="passive-loader">
+                                <div class="pulse-loader"></div>
+                            </div>
+                            
                             <div class="monitor-header">
                                 <div>
                                     <h3 style="font-size: 1.25rem;">Passive Authentication</h3>
@@ -922,7 +1096,11 @@
                         </div>
 
                         <!-- Active Challenge Response Panel -->
-                        <div class="glass-panel challenge-panel">
+                        <div class="glass-panel challenge-panel" style="position: relative;">
+                            <div class="loading-pulse-overlay" id="challenge-loader">
+                                <div class="pulse-loader"></div>
+                            </div>
+
                             <div>
                                 <h3 style="font-size: 1.25rem;">Verification Challenge</h3>
                                 <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Spontaneous prompt checks</p>
@@ -941,7 +1119,9 @@
 
                     <!-- Fusion Verdict Report -->
                     <div class="glass-panel report-section" id="report-section">
-                        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Fusion Authenticity Verification Verdict</h3>
+                        <div class="report-title-bar">
+                            <h3 style="font-size: 1.15rem; color: var(--accent-purple);">Score Fusion Verdict</h3>
+                        </div>
                         <div class="report-grid">
                             <div class="report-card">
                                 <div class="report-lbl">Passive Score</div>
@@ -965,7 +1145,7 @@
                     <!-- Live Logs Console -->
                     <div class="glass-panel console-panel">
                         <div class="console-header">
-                            <span class="console-title">Live Call Verifier Console Logs</span>
+                            <span class="console-title">Live Call Verifier Logs</span>
                             <button class="clear-console-btn" onclick="clearConsole()">Clear Logs</button>
                         </div>
                         <div class="console-log-box" id="console-box">
@@ -980,7 +1160,7 @@
         <div class="tab-panel" id="panel-metrics">
             
             <div class="alert-bar">
-                <span>⚠️</span>
+                <span style="font-size: 1.3rem;">⚠️</span>
                 <span><strong>viva presentation note:</strong> The clean-vs-degraded benchmarks are validated on ASVspoof 2019 logical access evaluation files. However, the aggregate separation gap stats (table below) are marked preliminary, pending collection of matching-content human speech recordings.</span>
             </div>
 
@@ -1047,22 +1227,22 @@
             <!-- Matplotlib Visualizations Row -->
             <div class="chart-row">
                 <div class="glass-panel image-card">
-                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Feature Importances (LR Weights Magnitude)</h3>
+                    <h3 style="font-size: 1.15rem; color: var(--accent-purple); margin-bottom: 12px;">Feature Importances (LR Weights Magnitude)</h3>
                     <img src="/docs/feature_importance.png" alt="Feature Importance Plot">
                 </div>
                 <div class="glass-panel image-card">
-                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Full Pipeline Verification Diagram</h3>
-                    <img src="/docs/architecture_diagram.png" alt="Pipeline Architecture Diagram">
+                    <h3 style="font-size: 1.15rem; color: var(--accent-purple); margin-bottom: 12px;">Receiver Operating Characteristic (ROC) Curves</h3>
+                    <img src="/docs/roc_curves.png" alt="ROC Performance Curves">
                 </div>
             </div>
             
             <div class="chart-row">
                 <div class="glass-panel image-card" style="grid-column: span 2;">
-                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Matplotlib Confusion Matrices</h3>
+                    <h3 style="font-size: 1.15rem; color: var(--accent-purple); margin-bottom: 12px;">Matplotlib Confusion Matrices</h3>
                     <div style="display: flex; gap: 15px; justify-content: center; overflow-x: auto; padding: 10px;">
-                        <img src="/docs/confusion_matrix_clean.png" style="width: 30%; min-width: 250px;" alt="Clean CM">
-                        <img src="/docs/confusion_matrix_amr.png" style="width: 30%; min-width: 250px;" alt="AMR CM">
-                        <img src="/docs/confusion_matrix_combined.png" style="width: 30%; min-width: 250px;" alt="Combined CM">
+                        <img src="/docs/confusion_matrix_clean.png" style="width: 31%; min-width: 250px;" alt="Clean CM">
+                        <img src="/docs/confusion_matrix_amr.png" style="width: 31%; min-width: 250px;" alt="AMR CM">
+                        <img src="/docs/confusion_matrix_combined.png" style="width: 31%; min-width: 250px;" alt="Combined CM">
                     </div>
                 </div>
             </div>
@@ -1072,7 +1252,7 @@
     </div>
 
     <script>
-        // Navigation logic
+        // Navigation tab swapper
         function switchTab(tab) {
             document.querySelectorAll(".nav-tab-btn").forEach(btn => btn.classList.remove("active"));
             document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active"));
@@ -1087,7 +1267,7 @@
             }
         }
 
-        // Confusion Matrix toggle logic
+        // Confusion Matrix toggle stats
         const cm_data = {
             clean: { tn: 98, fp: 27, fn: 0, tp: 16 },
             amr: { tn: 87, fp: 38, fn: 1, tp: 15 },
@@ -1114,7 +1294,7 @@
             document.getElementById("cm-tp-pct").innerText = (data.tp / total * 100).toFixed(1) + "%";
         }
 
-        // Dynamic markdown parser
+        // Load benchmarks from results_degraded.md file
         async function loadMetrics() {
             try {
                 const res = await fetch("/docs/results_degraded.md");
@@ -1154,7 +1334,7 @@
             }
         }
 
-        // Waveform Visualizer
+        // Matplotlib waveform visualizer
         const canvas = document.getElementById("waveform-canvas");
         const ctx = canvas.getContext("2d");
         let animationFrameId;
@@ -1174,7 +1354,7 @@
             let x = 0;
 
             for (let i = 0; i < 40; i++) {
-                const amp = isPlaying ? Math.random() * 25 + 5 : 2;
+                const amp = isPlaying ? Math.random() * 20 + 4 : 2;
                 const y = canvas.height / 2 + (i % 2 === 0 ? amp : -amp);
                 if (i === 0) {
                     ctx.moveTo(x, y);
@@ -1193,7 +1373,7 @@
         }
         drawVisualizer(false);
 
-        // State Tracking Visualizers (viva flow indicators)
+        // State Tracking Visualizers (viva connected step markers)
         function setStepState(step, state, descText) {
             const card = document.getElementById(`step${step}-card`);
             const desc = document.getElementById(`step${step}-desc`);
@@ -1204,6 +1384,13 @@
             if (state === 'active') card.classList.add("active");
             else if (state === 'suspicious') card.classList.add("suspicious");
             else if (state === 'success') card.classList.add("success");
+        }
+
+        function toggleLoader(panelId, show) {
+            const loader = document.getElementById(`${panelId}-loader`);
+            if (loader) {
+                loader.style.display = show ? "flex" : "none";
+            }
         }
 
         function log(message, type = "system") {
@@ -1234,11 +1421,11 @@
             if (score >= 0.7943) {
                 pill.className = "status-pill status-clean";
                 pill.innerText = "AUTHENTIC";
-                setStepState(1, "success", `Voice Authentic: ${Math.round(score*100)}%`);
+                setStepState(1, "success", `Authentic voice envelope verified (${Math.round(score*100)}%)`);
             } else {
                 pill.className = "status-pill status-suspicious";
                 pill.innerText = "SUSPICIOUS";
-                setStepState(1, "suspicious", `Alert! Authenticity low: ${Math.round(score*100)}%`);
+                setStepState(1, "suspicious", `Footprint flagged (${Math.round(score*100)}%)`);
             }
         }
 
@@ -1258,17 +1445,16 @@
             
             ws.onopen = () => {
                 log("WebSocket connected. Streaming microphone data...");
-                setStepState(1, "active", "Streaming live microphone chunks...");
+                setStepState(1, "active", "Streaming live mic audio chunks...");
             };
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 currentPassiveScore = data.passive_authenticity_score;
                 updateGauge(currentPassiveScore);
-                log(`[Real-Time Passive Score]: ${Math.round(currentPassiveScore * 100)}% (Status: ${data.status})`);
                 
                 if (data.trigger_challenge) {
-                    log(`[ALARM] Passive score dropped below safety threshold! Triggering challenge...`, "error");
+                    log(`[ALARM] Passive score dropped below safety threshold! Challenge triggered.`, "error");
                     requestChallenge();
                 }
             };
@@ -1321,13 +1507,14 @@
 
         async function runSimulation(filename, degradationMode, expectedClass) {
             log(`Running simulation preset: ${filename} (Codec: ${degradationMode.toUpperCase()})`);
+            toggleLoader("passive", true);
             drawVisualizer(true);
-            setStepState(1, "active", "Analyzing call frame features...");
+            setStepState(1, "active", "Extracting cepstral features...");
             
             const fileUrl = `/data/raw/ASVspoof2019_LA_dev/flac/${filename}`;
             try {
                 const response = await fetch(fileUrl);
-                if (!response.ok) throw new Error("Audio file not found in dataset splits.");
+                if (!response.ok) throw new Error("Audio file not found in local splits dataset.");
                 const blob = await response.blob();
                 
                 const formData = new FormData();
@@ -1339,6 +1526,7 @@
                 });
                 
                 const data = await res.json();
+                toggleLoader("passive", false);
                 drawVisualizer(false);
                 
                 if (res.ok) {
@@ -1347,19 +1535,20 @@
                     log(`Passive scan complete. Authenticity score: ${currentPassiveScore}.`);
                     
                     if (data.trigger_challenge) {
-                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response required.`, "error");
-                        setStepState(1, "suspicious", `Score: ${Math.round(currentPassiveScore*100)}% (Spoof Detected)`);
+                        log(`[ALARM] Voice footprint flagged! Challenge required.`, "error");
+                        setStepState(1, "suspicious", `Flagged: ${Math.round(currentPassiveScore*100)}% (Spoof Detected)`);
                         requestChallenge();
                     } else {
                         log(`Voice verified authentic.`);
-                        setStepState(1, "success", `Voice Authentic: ${Math.round(currentPassiveScore*100)}%`);
-                        setStepState(2, "active", "Step bypassed (Authentic).");
+                        setStepState(1, "success", `Verified Authentic: ${Math.round(currentPassiveScore*100)}%`);
+                        setStepState(2, "success", "Step Bypassed (Human Verified)");
                         document.getElementById("submit-response-btn").disabled = true;
                     }
                 } else {
                     log(`API Error: ${data.detail}`, "error");
                 }
             } catch (err) {
+                toggleLoader("passive", false);
                 drawVisualizer(false);
                 log(`Simulation failed: ${err.message}`, "error");
             }
@@ -1367,18 +1556,23 @@
 
         async function requestChallenge() {
             log("Requesting dynamic verification prompt...");
-            setStepState(2, "active", "Issuing dynamic verification challenge...");
+            toggleLoader("challenge", true);
+            setStepState(2, "active", "Generating spontaneous prompt challenge...");
+            
             try {
                 const res = await fetch("/challenge/request", { method: "POST" });
                 const data = await res.json();
-                activeChallengeText = data.challenge_phrase;
+                toggleLoader("challenge", false);
                 
+                activeChallengeText = data.challenge_phrase;
                 document.getElementById("challenge-text").innerText = activeChallengeText;
                 document.getElementById("challenge-text").style.color = "#ffffff";
                 log(`Challenge issued: "${activeChallengeText}"`);
                 
+                setStepState(2, "active", "Awaiting spoken response...");
                 document.getElementById("submit-response-btn").disabled = false;
             } catch (err) {
+                toggleLoader("challenge", false);
                 log(`Challenge fetch failed: ${err.message}`, "error");
             }
         }
@@ -1431,11 +1625,13 @@
         async function sendToPassiveAPI(blob, filename) {
             const formData = new FormData();
             formData.append("file", blob, filename);
+            toggleLoader("passive", true);
             setStepState(1, "active", "Analyzing custom microphone sample...");
             
             try {
                 const res = await fetch("/verify-passive", { method: "POST", body: formData });
                 const data = await res.json();
+                toggleLoader("passive", false);
                 
                 if (res.ok) {
                     currentPassiveScore = data.passive_authenticity_score;
@@ -1443,7 +1639,7 @@
                     log(`Scan complete. Authenticity score: ${currentPassiveScore}.`);
                     
                     if (data.trigger_challenge) {
-                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response required.`, "error");
+                        log(`[ALARM] Voice is suspicious! Dynamic challenge required.`, "error");
                         requestChallenge();
                     } else {
                         log(`Voice verified authentic.`);
@@ -1453,6 +1649,7 @@
                     log(`API Error: ${data.detail}`, "error");
                 }
             } catch (err) {
+                toggleLoader("passive", false);
                 log(`Analysis failed: ${err.message}`, "error");
             }
         }
@@ -1478,6 +1675,7 @@
                 isChallengeRecording = false;
                 challengeBtn.innerText = "Record Response";
                 challengeBtn.style.background = "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))";
+                toggleLoader("challenge", true);
                 setStepState(2, "active", "Transcribing speech offline using Whisper...");
                 
                 const blob = await stopMicRecording();
@@ -1495,10 +1693,11 @@
             try {
                 const res = await fetch("/challenge/verify", { method: "POST", body: formData });
                 const data = await res.json();
+                toggleLoader("challenge", false);
                 
                 if (res.ok) {
                     log("Fusion score computed successfully.");
-                    setStepState(2, "success", "Whisper Transcription Complete!");
+                    setStepState(2, "success", "Whisper Transcription & Align Check Complete");
                     
                     document.getElementById("report-section").style.display = "block";
                     document.getElementById("report-passive-score").innerText = Math.round(data.fusion_metrics.passive_score * 100) + "%";
@@ -1514,11 +1713,11 @@
                     
                     if (score >= 0.5) {
                         finalScoreVal.style.color = "var(--accent-green)";
-                        setStepState(3, "success", `Passed! Final Score: ${Math.round(score*100)}%`);
+                        setStepState(3, "success", `Call Passed (Final: ${Math.round(score*100)}%)`);
                         log(`[VERDICT] CALL AUTHENTICATED: Challenge passed! - ${data.final_status}`);
                     } else {
                         finalScoreVal.style.color = "var(--accent-pink)";
-                        setStepState(3, "suspicious", `Blocked! Final Score: ${Math.round(score*100)}%`);
+                        setStepState(3, "suspicious", `Call Blocked (Final: ${Math.round(score*100)}%)`);
                         log(`[ALARM VERDICT] CALL BLOCKED: Challenge failed! - ${data.final_status}`, "error");
                         if (data.response_metrics.replay_attack_detected) {
                             log(`[REPLAY ALARM] Replay attack flagged: transcribed content mismatched challenge context!`, "error");
@@ -1528,6 +1727,7 @@
                     log(`API Error: ${data.detail}`, "error");
                 }
             } catch (err) {
+                toggleLoader("challenge", false);
                 log(`Challenge verification failed: ${err.message}`, "error");
             }
         }

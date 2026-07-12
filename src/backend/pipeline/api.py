@@ -1,32 +1,92 @@
 import os
+import time
 import shutil
 import tempfile
 import joblib
 import subprocess
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from src.features.extract_features import extract_features
-from src.challenge_engine.phrase_challenge import generate_challenge_phrase
-from src.challenge_engine.response_scorer import score_response
-from src.pipeline.fusion import fuse_scores
-from src.pipeline.degrade_audio import process_file, get_ffmpeg_path
+from pydantic import BaseModel, Field
+from src.backend.features.extract_features import extract_features
+from src.backend.challenge_engine.phrase_challenge import generate_challenge_phrase
+from src.backend.challenge_engine.response_scorer import score_response, get_whisper_model
+from src.backend.pipeline.fusion import fuse_scores
+from src.backend.pipeline.degrade_audio import process_file, get_ffmpeg_path
 
 app = FastAPI(
-    title="Real-Time AI Voice Clone and Deepfake Call Verification API",
-    description="Backend API for passive call verification and challenge-response authentication.",
+    title="VoxGuard Verification Pipeline API",
+    description="Backend API for continuous passive voice clone detection, challenge dispatching, and score fusion verification.",
     version="1.0.0"
 )
+
+# Pydantic Schemas for Swagger / API documentation
+class PassiveVerifyResponse(BaseModel):
+    filename: str = Field(..., description="Name of the processed file.")
+    degradation_applied: str = Field(..., description="Type of degradation/codec applied.")
+    passive_authenticity_score: float = Field(..., description="Authenticity score from passive monitor (0.0 to 1.0).")
+    status: str = Field(..., description="Call status: CLEAN or SUSPICIOUS.")
+    trigger_challenge: bool = Field(..., description="Whether the challenge mechanism is recommended.")
+    message: str = Field(..., description="Detailed explanation of the verdict.")
+
+class ChallengeRequestResponse(BaseModel):
+    challenge_phrase: str = Field(..., description="Synthesized phrase issued to caller.")
+    instructions: str = Field(..., description="Instructions for verification step.")
+
+class ResponseMetrics(BaseModel):
+    voice_authenticity_score: float
+    content_adherence_score: float
+    fused_challenge_score: float
+    is_suspicious: bool
+    replay_attack_detected: bool
+    transcript: str
+
+class FusionMetrics(BaseModel):
+    passive_score: float
+    challenge_score: float
+    final_authenticity_score: float
+    status: str
+    method: str
+
+class ChallengeVerifyResponse(BaseModel):
+    challenge_phrase: str
+    response_metrics: ResponseMetrics
+    fusion_metrics: FusionMetrics
+    final_status: str
+
+# Middleware for response latency logging
+@app.middleware("http")
+async def log_latency_middleware(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    response.headers["X-Response-Time-Seconds"] = f"{duration:.4f}"
+    # Log duration cleanly
+    print(f"[Latency Diagnostic] Path: {request.url.path} | Method: {request.method} | Duration: {duration:.4f}s")
+    return response
 
 # Global variables to store the loaded model
 CLF = None
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/detector.pkl"))
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
-STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../static"))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data"))
+STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/static"))
+
+# Helper for audio file validation
+ALLOWED_EXTENSIONS = {".wav", ".flac", ".ogg", ".mp3"}
+def validate_audio_file(file: UploadFile):
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file format '{ext}'. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+    # Check if size is empty or potentially too large (e.g. 10MB limit)
+    # Note: FastAPI file.size is metadata. Let's do a basic size lookup or handle safely.
 
 @app.on_event("startup")
 def startup_event():
     global CLF
+    # 1. Load baseline passive detector
     if os.path.exists(MODEL_PATH):
         try:
             CLF = joblib.load(MODEL_PATH)
@@ -34,7 +94,14 @@ def startup_event():
         except Exception as e:
             print(f"Error loading model from {MODEL_PATH}: {e}")
     else:
-        print(f"Warning: Detector model not found at {MODEL_PATH}. Endpoints will fail until model is trained.")
+        print(f"Warning: Detector model not found at {MODEL_PATH}.")
+        
+    # 2. Pre-load local Whisper tiny model onto CPU
+    try:
+        get_whisper_model()
+        print("Successfully pre-loaded Whisper model on startup.")
+    except Exception as e:
+        print(f"Error preloading Whisper model: {e}")
 
 def get_classifier():
     if CLF is None:
@@ -44,15 +111,16 @@ def get_classifier():
         )
     return CLF
 
-@app.post("/verify-passive")
+@app.post("/verify-passive", response_model=PassiveVerifyResponse, summary="Passive Voice Deepfake Check", description="Passively analyzes 1.5s rolling audio frames using speaker-independent Logistic Regression classification.")
 async def verify_passive(
-    file: UploadFile = File(...),
-    degradation: str = Query("none", enum=["none", "amr", "opus", "packet_loss", "combined"])
+    file: UploadFile = File(..., description="Audio chunk to analyze (WAV/FLAC/MP3/OGG)."),
+    degradation: str = Query("none", enum=["none", "amr", "opus", "packet_loss", "combined"], description="Channel condition profile to apply.")
 ):
     """
     Passively monitors live call audio chunks.
     Optionally applies dynamic degradation on-the-fly to simulate call channel effects.
     """
+    validate_audio_file(file)
     clf = get_classifier()
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
@@ -90,7 +158,7 @@ async def verify_passive(
         probs = clf.predict_proba(features)[0]
         passive_score = float(probs[1])
         
-        trigger_challenge = passive_score < 0.5
+        trigger_challenge = passive_score < 0.7943  # Using the calibrated clean baseline threshold
         
         return {
             "filename": file.filename,
@@ -109,8 +177,8 @@ async def verify_passive(
             except:
                 pass
 
-@app.get("/challenge/request")
-@app.post("/challenge/request")
+@app.get("/challenge/request", response_model=ChallengeRequestResponse, summary="Request Dynamic Prompt", description="Generates a spontaneous phrase challenge for context-binding caller verification.")
+@app.post("/challenge/request", response_model=ChallengeRequestResponse)
 def get_challenge():
     """Generates a random challenge phrase for dynamic verification."""
     phrase = generate_challenge_phrase()
@@ -119,16 +187,17 @@ def get_challenge():
         "instructions": "Prompt the caller to speak/respond to this phrase exactly."
     }
 
-@app.post("/challenge/verify")
+@app.post("/challenge/verify", response_model=ChallengeVerifyResponse, summary="Verify Challenge Response", description="Transcribes response audio offline using Whisper and fuses metrics using trained ML model.")
 async def verify_challenge(
-    file: UploadFile = File(...),
-    phrase: str = Form(...),
-    passive_score: float = Form(...)
+    file: UploadFile = File(..., description="Challenge-response speech audio file."),
+    phrase: str = Form(..., description="The issued prompt challenge text."),
+    passive_score: float = Form(..., description="Initial passive authentication score (0.0 to 1.0).")
 ):
     """
     Evaluates the response audio to a dynamic challenge.
     Fuses the response fidelity score with the initial passive score using the trained ML fuser.
     """
+    validate_audio_file(file)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         shutil.copyfileobj(file.file, temp_file)
         temp_path = temp_file.name
@@ -238,7 +307,7 @@ if os.path.exists(DATA_DIR):
     app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 # Serve the docs directory statically at /docs
-docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
+docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../docs"))
 if os.path.exists(docs_dir):
     app.mount("/docs", StaticFiles(directory=docs_dir), name="docs")
 
@@ -257,4 +326,4 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("src.pipeline.api:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("src.backend.pipeline.api:app", host="127.0.0.1", port=8000, reload=True)

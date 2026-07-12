@@ -2,10 +2,10 @@ import os
 import joblib
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
-from src.features.load_dataset import get_split_dataset
-from src.features.extract_features import extract_features
-from src.models.baseline_detector import compute_eer
-from src.pipeline.degrade_audio import process_file
+from src.backend.features.load_dataset import get_split_dataset
+from src.backend.features.extract_features import extract_features
+from src.backend.models.baseline_detector import compute_eer
+from src.backend.pipeline.degrade_audio import process_file
 
 def find_optimal_threshold(y_true, y_prob):
     """

@@ -77,7 +77,7 @@ def main():
         env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         python_exe = os.path.abspath(os.path.join(os.path.dirname(__file__), "../venv/Scripts/python.exe"))
         
-        cmd = [python_exe, "-m", "uvicorn", "src.pipeline.api:app", "--host", "127.0.0.1", "--port", "8080"]
+        cmd = [python_exe, "-m", "uvicorn", "src.backend.pipeline.api:app", "--host", "127.0.0.1", "--port", "8080"]
         print(f"Starting FastAPI server on {base_url} (waiting 35s for PyTorch and Whisper initialization)...")
         proc = subprocess.Popen(cmd, env=env)
         time.sleep(35.0)

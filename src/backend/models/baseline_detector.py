@@ -6,8 +6,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
-from src.features.load_dataset import get_split_dataset, print_split_statistics
-from src.features.extract_features import extract_features
+from src.backend.features.load_dataset import get_split_dataset, print_split_statistics
+from src.backend.features.extract_features import extract_features
 
 def compute_eer(y_true, y_prob):
     """
