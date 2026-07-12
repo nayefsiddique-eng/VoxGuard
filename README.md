@@ -1,6 +1,4 @@
-# VoxGuard
-
-### *Real-Time AI Voice Clone & Call Verification System*
+# VoxGuard: Real-Time AI Voice Clone and Deepfake Call Verification System
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.95%2B-009688.svg?style=flat-square)](https://fastapi.tiangolo.com/)
@@ -9,6 +7,14 @@
 [![Status: Prototype](https://img.shields.io/badge/Status-Prototype-orange.svg?style=flat-square)](#)
 
 VoxGuard is an end-to-end call verification framework designed to detect AI voice clones (deepfakes) and prevent replay bypass attacks on active communication links. By combining continuous passive classification with dynamic vocal challenges, the system binds the caller's context to verify speaker authenticity in real time.
+
+---
+
+<p align="center">
+  <img src="docs/architecture_diagram.png" alt="VoxGuard: Real-Time AI Voice Clone and Deepfake Call Verification System Architecture" width="750">
+  <br>
+  <i>Figure 1: Modular dataflow pipeline of the VoxGuard system, tracking call frames from continuous passive scans to dynamic context-bound challenges.</i>
+</p>
 
 ---
 
@@ -46,7 +52,7 @@ VoxGuard addresses this vulnerability by adapting the video-centric **GOTCHA** (
 
 ## ⚙️ How It Works
 
-The verification pipeline runs across the following stages:
+The modular dataflow pipeline of the VoxGuard system is illustrated in Figure 1. The verification pipeline runs across the following stages:
 
 1. **Audio Capture**: Incoming call audio is captured and sliced into 1.5s windows or streamed as WebSocket frames via the administrative dashboard.
 2. **Feature Extraction**: Extracts 120-dimensional Mel-Frequency Cepstral Coefficients (MFCCs: static, delta, and delta-delta features) to capture vocoder footprints.

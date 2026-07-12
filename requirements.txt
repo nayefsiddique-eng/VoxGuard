@@ -1,0 +1,17 @@
+fastapi==0.139.0
+uvicorn==0.51.0
+torch==2.13.0
+torchaudio==2.11.0
+librosa==0.11.0
+soundfile==0.14.0
+scikit-learn==1.9.0
+openai-whisper==20250625
+transformers==5.13.1
+matplotlib==3.11.0
+python-multipart==0.0.32
+gTTS==2.5.4
+pyttsx3==2.99
+joblib==1.5.3
+numpy==2.4.6
+requests==2.34.2
+scipy==1.18.0

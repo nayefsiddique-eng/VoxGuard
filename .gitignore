@@ -14,7 +14,6 @@ data/raw/
 data/features/
 data/degraded/
 data/degraded_eval/
-data/challenges/
 temp_*.wav
 temp_*.webm
 
@@ -22,6 +21,3 @@ temp_*.webm
 .ipynb_checkpoints/
 .idea/
 .vscode/
-
-# Ignore compiled models (optional, but keep detector.pkl if small)
-# src/models/*.pkl
