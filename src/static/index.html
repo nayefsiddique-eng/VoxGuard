@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GOTCHA - Real-Time AI Voice Deepfake Verification</title>
+    <title>VoxGuard - Real-Time AI Voice Deepfake Verification</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #0b0f19;
-            --bg-panel: rgba(22, 28, 45, 0.65);
+            --bg-base: #080c14;
+            --bg-panel: rgba(17, 24, 39, 0.7);
             --border-color: rgba(255, 255, 255, 0.08);
             --accent-cyan: #06b6d4;
             --accent-purple: #8b5cf6;
@@ -34,8 +34,8 @@
             background-color: var(--bg-base);
             color: var(--text-main);
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(30, 27, 75, 0.4) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.6) 0%, transparent 40%);
+                radial-gradient(circle at 10% 20%, rgba(30, 27, 75, 0.45) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.6) 0%, transparent 45%);
             min-height: 100vh;
             overflow-x: hidden;
             display: flex;
@@ -52,18 +52,18 @@
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         header {
-            padding: 20px 40px;
+            padding: 16px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(8, 12, 20, 0.85);
+            backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -76,75 +76,174 @@
         }
 
         .logo-icon {
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-            border-radius: 10px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            color: var(--bg-base);
-            font-size: 1.2rem;
-            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            color: #ffffff;
+            font-size: 1.3rem;
+            box-shadow: var(--shadow-glow);
         }
 
         .logo-title {
-            font-size: 1.4rem;
+            font-size: 1.45rem;
             font-weight: 700;
             background: linear-gradient(to right, #ffffff, var(--accent-cyan));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .project-badge {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            padding: 6px 14px;
-            border-radius: 99px;
-            font-size: 0.8rem;
-            color: var(--accent-cyan);
-            font-weight: 500;
+        .nav-tabs {
             display: flex;
-            align-items: center;
             gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
         }
 
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent-cyan);
-            border-radius: 50%;
-            animation: pulse 1.8s infinite;
+        .nav-tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
-            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 0 8px rgba(6, 182, 212, 0); }
-            100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+        .nav-tab-btn.active {
+            background: var(--accent-purple);
+            color: #ffffff;
         }
 
-        .container {
-            max-width: 1400px;
+        .nav-tab-btn:hover:not(.active) {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Container & Grids */
+        .app-content {
+            max-width: 1440px;
             width: 100%;
             margin: 0 auto;
-            padding: 30px 20px;
+            padding: 24px;
             flex: 1;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Demo Grid */
+        .demo-layout {
             display: grid;
             grid-template-columns: 350px 1fr;
-            gap: 30px;
+            gap: 24px;
         }
 
         @media (max-width: 1024px) {
-            .container {
+            .demo-layout {
                 grid-template-columns: 1fr;
             }
         }
 
+        /* Steps Flow Tracker */
+        .steps-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .step-card {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .step-card.active {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        .step-card.suspicious {
+            border-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.05);
+            animation: shake 0.5s ease;
+        }
+
+        .step-card.success {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .step-card.active .step-num {
+            background: var(--accent-cyan);
+            color: var(--bg-base);
+            border-color: var(--accent-cyan);
+        }
+
+        .step-card.suspicious .step-num {
+            background: var(--accent-red);
+            color: #ffffff;
+            border-color: var(--accent-red);
+        }
+
+        .step-card.success .step-num {
+            background: var(--accent-green);
+            color: var(--bg-base);
+            border-color: var(--accent-green);
+        }
+
+        .step-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .step-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Left Side Controls */
         .control-center {
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 24px;
         }
 
         .sidebar-section {
@@ -233,11 +332,6 @@
             animation: record-vibrate 0.5s infinite alternate;
         }
 
-        @keyframes record-vibrate {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.03); }
-        }
-
         .upload-wrapper {
             position: relative;
             cursor: pointer;
@@ -260,16 +354,17 @@
             cursor: pointer;
         }
 
+        /* Right Side Dashboard */
         .main-dashboard {
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            gap: 24px;
         }
 
         .metrics-grid {
             display: grid;
             grid-template-columns: 1.2fr 1fr;
-            gap: 30px;
+            gap: 24px;
         }
 
         @media (max-width: 768px) {
@@ -305,12 +400,6 @@
         .status-untested { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color); }
         .status-clean { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
         .status-suspicious { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); animation: shake 0.5s ease; }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-6px); }
-            40%, 80% { transform: translateX(6px); }
-        }
 
         .gauge-container {
             display: flex;
@@ -458,9 +547,47 @@
             box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
         }
 
+        /* Fusion Verdict Report */
+        .report-section {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .report-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .report-val {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        .report-lbl {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Console */
         .console-panel {
-            padding: 24px;
-            flex: 1;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             min-height: 200px;
@@ -474,7 +601,7 @@
         }
 
         .console-title {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
             color: var(--accent-purple);
             text-transform: uppercase;
@@ -489,88 +616,177 @@
             font-size: 0.8rem;
         }
 
-        .clear-console-btn:hover {
-            color: var(--text-main);
-        }
-
         .console-log-box {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.35);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 15px;
+            padding: 12px;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.85rem;
-            line-height: 1.4;
             color: #a7f3d0;
             height: 120px;
             overflow-y: auto;
-            flex: 1;
         }
 
-        .log-entry { margin-bottom: 6px; }
+        .log-entry { margin-bottom: 4px; }
         .log-time { color: var(--accent-cyan); margin-right: 6px; }
         .log-error { color: var(--accent-pink); }
         .log-system { color: var(--text-muted); }
 
-        .report-section {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .report-grid {
+        /* Metrics tab grids */
+        .metrics-layout {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
         }
 
-        .report-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
+        @media (max-width: 1024px) {
+            .metrics-layout {
+                grid-template-columns: 1fr;
+            }
         }
 
-        .report-val {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-top: 4px;
-        }
-
-        .report-lbl {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-
-        /* Research Metrics Table (Viva presentation-friendly) */
-        .metrics-section {
+        .metrics-table-panel {
             padding: 24px;
-            margin-top: 10px;
         }
 
         .metrics-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 12px;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
         }
 
         .metrics-table th, .metrics-table td {
             text-align: left;
-            padding: 10px;
+            padding: 12px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .metrics-table th {
-            color: var(--accent-purple);
+            color: var(--accent-cyan);
             font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        /* SVG Confusion Matrix Grid styling */
+        .cm-panel {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .cm-toggle-bar {
+            display: flex;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            align-self: flex-start;
+        }
+
+        .cm-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .cm-toggle-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-base);
+        }
+
+        .confusion-matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+        }
+
+        .cm-cell {
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cm-cell.cell-tp { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
+        .cm-cell.cell-tn { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
+        .cm-cell.cell-fp { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
+        .cm-cell.cell-fn { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
+
+        .cm-cell-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .cm-cell-val {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        .cm-cell-pct {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .image-card {
+            padding: 24px;
+            text-align: center;
+        }
+
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .alert-bar {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 12px 18px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+            color: #fbbf24;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
     </style>
 </head>
@@ -578,203 +794,276 @@
 
     <header>
         <div class="logo-container">
-            <div class="logo-icon">G</div>
-            <div class="logo-title">GOTCHA Voice Authentication</div>
+            <div class="logo-icon">V</div>
+            <div class="logo-title">VoxGuard</div>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab-btn active" id="tab-demo" onclick="switchTab('demo')">Live Call Monitor</button>
+            <button class="nav-tab-btn" id="tab-metrics" onclick="switchTab('metrics')">Results & Benchmarks</button>
         </div>
         <div class="project-badge">
             <div class="pulse-dot"></div>
-            Live Call Pipeline Active (Phase 2)
+            Verification Pipeline Active
         </div>
     </header>
 
-    <div class="container">
-        
-        <!-- Left Column: Controls & Inputs -->
-        <div class="control-center">
+    <div class="app-content">
+
+        <!-- TAB 1: LIVE DEMO MONITOR -->
+        <div class="tab-panel active" id="panel-demo">
             
-            <!-- Simulation Presets -->
-            <div class="glass-panel sidebar-section">
-                <h3 class="section-title">ASVspoof Demo Presets</h3>
-                <div class="preset-grid">
-                    <button class="preset-btn" onclick="runSimulation('LA_E_8158151.flac', 'none', 'real')">
-                        <span>ASVspoof Bonafide Call</span>
-                        <span class="preset-badge badge-real">Real</span>
-                    </button>
-                    <button class="preset-btn" onclick="runSimulation('LA_E_7056845.flac', 'none', 'fake')">
-                        <span>ASVspoof Voice Clone (A07)</span>
-                        <span class="preset-badge badge-fake">Spoof</span>
-                    </button>
-                    <button class="preset-btn" onclick="runSimulation('LA_E_8158151.flac', 'amr', 'real')">
-                        <span>AMR Narrowband (Real)</span>
-                        <span class="preset-badge badge-real">AMR</span>
-                    </button>
-                    <button class="preset-btn" onclick="runSimulation('LA_E_7056845.flac', 'combined', 'fake')">
-                        <span>Combined Telephony (Spoof)</span>
-                        <span class="preset-badge badge-fake">Lossy</span>
-                    </button>
+            <!-- Pipeline Step Flow Tracker -->
+            <div class="steps-container">
+                <div class="glass-panel step-card active" id="step1-card">
+                    <div class="step-num">1</div>
+                    <div class="step-info">
+                        <span class="step-title">Passive Monitor</span>
+                        <span class="step-desc" id="step1-desc">Idle. Waiting for audio input...</span>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Custom Input Interface -->
-            <div class="glass-panel sidebar-section">
-                <h3 class="section-title">Manual Verification Center</h3>
-                <div class="audio-input-area">
-                    <button id="record-btn" class="record-btn" onclick="toggleRecording()">
-                        <span class="record-icon">🔴</span>
-                        <span id="record-text">Record Live Mic</span>
-                    </button>
-
-                    <button id="stream-btn" class="record-btn" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);" onclick="toggleStreaming()">
-                        <span class="record-icon">⚡</span>
-                        <span id="stream-text">Stream Live Mic</span>
-                    </button>
-                    
-                    <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">— OR —</div>
-                    
-                    <div class="upload-wrapper">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">📁</span>
-                        <span>Upload Audio File</span>
-                        <input type="file" class="upload-input" accept="audio/*" onchange="handleFileUpload(event)">
+                <div class="glass-panel step-card" id="step2-card">
+                    <div class="step-num">2</div>
+                    <div class="step-info">
+                        <span class="step-title">Dynamic Challenge</span>
+                        <span class="step-desc" id="step2-desc">Inactive. Triggered on alert.</span>
+                    </div>
+                </div>
+                <div class="glass-panel step-card" id="step3-card">
+                    <div class="step-num">3</div>
+                    <div class="step-info">
+                        <span class="step-title">Fusion Verdict</span>
+                        <span class="step-desc" id="step3-desc">Awaiting decision.</span>
                     </div>
                 </div>
             </div>
 
+            <div class="demo-layout">
+                <!-- Left Side Controls -->
+                <div class="control-center">
+                    <div class="glass-panel sidebar-section">
+                        <h3 class="section-title">ASVspoof Demo Presets</h3>
+                        <div class="preset-grid">
+                            <button class="preset-btn" onclick="runSimulation('LA_E_9691199.flac', 'none', 'real')">
+                                <span>Real Human Audio</span>
+                                <span class="preset-badge badge-real">Real</span>
+                            </button>
+                            <button class="preset-btn" onclick="runSimulation('LA_E_1030819.flac', 'none', 'fake')">
+                                <span>Voice Clone Spoof</span>
+                                <span class="preset-badge badge-fake">Spoof</span>
+                            </button>
+                            <button class="preset-btn" onclick="runSimulation('LA_E_9691199.flac', 'amr', 'real')">
+                                <span>AMR Narrowband (Real)</span>
+                                <span class="preset-badge badge-real">AMR</span>
+                            </button>
+                            <button class="preset-btn" onclick="runSimulation('LA_E_1030819.flac', 'combined', 'fake')">
+                                <span>Combined Telephony (Spoof)</span>
+                                <span class="preset-badge badge-fake">Lossy</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel sidebar-section">
+                        <h3 class="section-title">Manual Verification</h3>
+                        <div class="audio-input-area">
+                            <button id="record-btn" class="record-btn" onclick="toggleRecording()">
+                                <span class="record-icon">🔴</span>
+                                <span id="record-text">Record Live Mic</span>
+                            </button>
+
+                            <button id="stream-btn" class="record-btn" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);" onclick="toggleStreaming()">
+                                <span class="record-icon">⚡</span>
+                                <span id="stream-text">Stream Live Mic</span>
+                            </button>
+                            
+                            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">— OR —</div>
+                            
+                            <div class="upload-wrapper">
+                                <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">📁</span>
+                                <span>Upload Audio File</span>
+                                <input type="file" class="upload-input" accept="audio/*" onchange="handleFileUpload(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side Dashboard -->
+                <div class="main-dashboard">
+                    <div class="metrics-grid">
+                        <!-- Passive Monitor Panel -->
+                        <div class="glass-panel monitor-panel">
+                            <div class="monitor-header">
+                                <div>
+                                    <h3 style="font-size: 1.25rem;">Passive Authentication</h3>
+                                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Continuous stream analysis</p>
+                                </div>
+                                <span id="passive-status-pill" class="status-pill status-untested">Untested</span>
+                            </div>
+
+                            <div class="gauge-container">
+                                <svg class="circle-gauge">
+                                    <defs>
+                                        <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#06b6d4" />
+                                            <stop offset="100%" stop-color="#8b5cf6" />
+                                        </linearGradient>
+                                    </defs>
+                                    <circle class="circle-bg" cx="90" cy="90" r="80"></circle>
+                                    <circle id="gauge-progress" class="circle-progress" cx="90" cy="90" r="80"></circle>
+                                </svg>
+                                <div class="gauge-text">
+                                    <span id="gauge-percent" class="gauge-val">—</span>
+                                    <span class="gauge-lbl">Authentic</span>
+                                </div>
+                            </div>
+
+                            <div class="visualizer-wrapper">
+                                <canvas id="waveform-canvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Active Challenge Response Panel -->
+                        <div class="glass-panel challenge-panel">
+                            <div>
+                                <h3 style="font-size: 1.25rem;">Verification Challenge</h3>
+                                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Spontaneous prompt checks</p>
+                            </div>
+
+                            <div class="challenge-box" id="challenge-box">
+                                <span id="challenge-text" style="color: var(--text-muted); font-style: italic;">No active challenge.</span>
+                            </div>
+
+                            <div class="btn-group">
+                                <button class="action-btn btn-secondary" onclick="requestChallenge()">New Challenge</button>
+                                <button class="action-btn btn-accent" id="submit-response-btn" onclick="toggleChallengeRecord()" disabled>Record Response</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fusion Verdict Report -->
+                    <div class="glass-panel report-section" id="report-section">
+                        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Fusion Authenticity Verification Verdict</h3>
+                        <div class="report-grid">
+                            <div class="report-card">
+                                <div class="report-lbl">Passive Score</div>
+                                <div class="report-val" id="report-passive-score">—</div>
+                            </div>
+                            <div class="report-card">
+                                <div class="report-lbl">Challenge Content</div>
+                                <div class="report-val" id="report-challenge-score">—</div>
+                            </div>
+                            <div class="report-card">
+                                <div class="report-lbl">Local Transcript</div>
+                                <div class="report-val" id="report-transcript" style="font-size: 0.8rem; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">—</div>
+                            </div>
+                            <div class="report-card">
+                                <div class="report-val" id="report-final-score" style="color: var(--accent-cyan);">—</div>
+                                <div class="report-lbl">Verdict Score</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Logs Console -->
+                    <div class="glass-panel console-panel">
+                        <div class="console-header">
+                            <span class="console-title">Live Call Verifier Console Logs</span>
+                            <button class="clear-console-btn" onclick="clearConsole()">Clear Logs</button>
+                        </div>
+                        <div class="console-log-box" id="console-box">
+                            <div class="log-entry log-system"><span class="log-time">00:00:00</span>VoxGuard call monitor backend initialized and awaiting connections...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Right Column: Main Verification Center -->
-        <div class="main-dashboard">
+        <!-- TAB 2: RESULTS & BENCHMARKS -->
+        <div class="tab-panel" id="panel-metrics">
             
-            <div class="metrics-grid">
-                <!-- Passive Monitor -->
-                <div class="glass-panel monitor-panel">
-                    <div class="monitor-header">
-                        <div>
-                            <h3 style="font-size: 1.25rem;">Passive Authentication</h3>
-                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Continuous stream analysis</p>
-                        </div>
-                        <span id="passive-status-pill" class="status-pill status-untested">Untested</span>
-                    </div>
+            <div class="alert-bar">
+                <span>⚠️</span>
+                <span><strong>viva presentation note:</strong> The clean-vs-degraded benchmarks are validated on ASVspoof 2019 logical access evaluation files. However, the aggregate separation gap stats (table below) are marked preliminary, pending collection of matching-content human speech recordings.</span>
+            </div>
 
-                    <div class="gauge-container">
-                        <svg class="circle-gauge">
-                            <defs>
-                                <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="#06b6d4" />
-                                    <stop offset="100%" stop-color="#8b5cf6" />
-                                </linearGradient>
-                            </defs>
-                            <circle class="circle-bg" cx="90" cy="90" r="80"></circle>
-                            <circle id="gauge-progress" class="circle-progress" cx="90" cy="90" r="80"></circle>
-                        </svg>
-                        <div class="gauge-text">
-                            <span id="gauge-percent" class="gauge-val">—</span>
-                            <span class="gauge-lbl">Authentic</span>
-                        </div>
-                    </div>
-
-                    <div class="visualizer-wrapper">
-                        <canvas id="waveform-canvas"></canvas>
-                    </div>
+            <div class="metrics-layout">
+                <!-- Calibrated Channel Benchmarks table -->
+                <div class="glass-panel metrics-table-panel">
+                    <h3 style="font-size: 1.15rem; color: var(--accent-cyan); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Calibrated Channel Benchmarks (Eval Split)</h3>
+                    <table class="metrics-table">
+                        <thead>
+                            <tr>
+                                <th>Condition</th>
+                                <th>Calibrated Thresh</th>
+                                <th>Accuracy</th>
+                                <th>EER</th>
+                                <th>AUC</th>
+                                <th>Accuracy Drop</th>
+                                <th>EER Increase</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dynamic-metrics-body">
+                            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Fetching benchmarks from results_degraded.md...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                <!-- Active Challenge Response -->
-                <div class="glass-panel challenge-panel">
+                <!-- Interactive Confusion Matrix Grid -->
+                <div class="glass-panel cm-panel">
                     <div>
-                        <h3 style="font-size: 1.25rem;">Verification Challenge</h3>
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Dynamic challenge-response verification</p>
+                        <h3 style="font-size: 1.15rem; color: var(--accent-cyan);">Evaluation Confusion Matrices</h3>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Dynamic matrix display based on calibrated thresholds</p>
                     </div>
 
-                    <div class="challenge-box" id="challenge-box">
-                        <span id="challenge-text" style="color: var(--text-muted); font-style: italic;">No active challenge.</span>
+                    <div class="cm-toggle-bar">
+                        <button class="cm-toggle-btn active" id="cm-btn-clean" onclick="switchCM('clean')">Clean</button>
+                        <button class="cm-toggle-btn" id="cm-btn-amr" onclick="switchCM('amr')">AMR-NB</button>
+                        <button class="cm-toggle-btn" id="cm-btn-combined" onclick="switchCM('combined')">Combined</button>
                     </div>
 
-                    <div class="btn-group">
-                        <button class="action-btn btn-secondary" onclick="requestChallenge()">New Challenge</button>
-                        <button class="action-btn btn-accent" id="submit-response-btn" onclick="toggleChallengeRecord()" disabled>Record Response</button>
+                    <div class="confusion-matrix-grid">
+                        <div class="cm-cell cell-tn">
+                            <span class="cm-cell-label">True Spoof (Blocked)</span>
+                            <span class="cm-cell-val" id="cm-tn">98</span>
+                            <span class="cm-cell-pct" id="cm-tn-pct">69.5%</span>
+                        </div>
+                        <div class="cm-cell cell-fp">
+                            <span class="cm-cell-label">False Human (Leakage)</span>
+                            <span class="cm-cell-val" id="cm-fp">27</span>
+                            <span class="cm-cell-pct" id="cm-fp-pct">19.1%</span>
+                        </div>
+                        <div class="cm-cell cell-fn">
+                            <span class="cm-cell-label">False Spoof (Alarm)</span>
+                            <span class="cm-cell-val" id="cm-fn">0</span>
+                            <span class="cm-cell-pct" id="cm-fn-pct">0.0%</span>
+                        </div>
+                        <div class="cm-cell cell-tp">
+                            <span class="cm-cell-label">True Human (Pass)</span>
+                            <span class="cm-cell-val" id="cm-tp">16</span>
+                            <span class="cm-cell-pct" id="cm-tp-pct">11.3%</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Fusion Verification Report -->
-            <div class="glass-panel report-section" id="report-section">
-                <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Fusion Authenticity Verification Report</h3>
-                <div class="report-grid">
-                    <div class="report-card">
-                        <div class="report-lbl">Passive Score</div>
-                        <div class="report-val" id="report-passive-score">—</div>
-                    </div>
-                    <div class="report-card">
-                        <div class="report-lbl">Challenge Fidelity</div>
-                        <div class="report-val" id="report-challenge-score">—</div>
-                    </div>
-                    <div class="report-card">
-                        <div class="report-val" id="report-final-score" style="color: var(--accent-cyan);">—</div>
-                        <div class="report-lbl">Fused Score</div>
-                    </div>
+            <!-- Matplotlib Visualizations Row -->
+            <div class="chart-row">
+                <div class="glass-panel image-card">
+                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Feature Importances (LR Weights Magnitude)</h3>
+                    <img src="/docs/feature_importance.png" alt="Feature Importance Plot">
+                </div>
+                <div class="glass-panel image-card">
+                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Full Pipeline Verification Diagram</h3>
+                    <img src="/docs/architecture_diagram.png" alt="Pipeline Architecture Diagram">
                 </div>
             </div>
-
-            <!-- Research Metrics Panel (Live Viva Demo-able) -->
-            <div class="glass-panel metrics-section">
-                <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; color: var(--accent-cyan);">Research Benchmarks (ASVspoof 2019 LA Evaluation Split)</h3>
-                <table class="metrics-table">
-                    <thead>
-                        <tr>
-                            <th>Channel Condition</th>
-                            <th>Accuracy</th>
-                            <th>Equal Error Rate (EER)</th>
-                            <th>Accuracy Drop</th>
-                            <th>EER Increase</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Clean Baseline</strong></td>
-                            <td><strong>91.2%</strong></td>
-                            <td><strong>9.20%</strong></td>
-                            <td>-</td>
-                            <td>-</td>
-                        </tr>
-                        <tr>
-                            <td>AMR-NB Codec</td>
-                            <td>87.6%</td>
-                            <td>13.60%</td>
-                            <td>-3.6%</td>
-                            <td>+4.40%</td>
-                        </tr>
-                        <tr>
-                            <td>Opus Codec</td>
-                            <td>88.8%</td>
-                            <td>12.80%</td>
-                            <td>-2.4%</td>
-                            <td>+3.60%</td>
-                        </tr>
-                        <tr>
-                            <td>Packet Loss Only (5%)</td>
-                            <td>89.2%</td>
-                            <td>14.40%</td>
-                            <td>-2.0%</td>
-                            <td>+5.20%</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Combined (AMR + Jitter + Loss)</strong></td>
-                            <td><strong>86.0%</strong></td>
-                            <td><strong>15.20%</strong></td>
-                            <td><strong>-5.2%</strong></td>
-                            <td><strong>+6.00%</strong></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Developer Live Console Logs -->
-            <div class="glass-panel console-panel">
-                <div class="console-header">
-                    <span class="console-title">Live Call Verifier Console Logs</span>
-                    <button class="clear-console-btn" onclick="clearConsole()">Clear Logs</button>
-                </div>
-                <div class="console-log-box" id="console-box">
-                    <div class="log-entry log-system"><span class="log-time">00:00:00</span>GOTCHA call monitoring backend initialized and awaiting connections...</div>
+            
+            <div class="chart-row">
+                <div class="glass-panel image-card" style="grid-column: span 2;">
+                    <h3 style="font-size: 1.1rem; color: var(--accent-purple); margin-bottom: 12px;">Matplotlib Confusion Matrices</h3>
+                    <div style="display: flex; gap: 15px; justify-content: center; overflow-x: auto; padding: 10px;">
+                        <img src="/docs/confusion_matrix_clean.png" style="width: 30%; min-width: 250px;" alt="Clean CM">
+                        <img src="/docs/confusion_matrix_amr.png" style="width: 30%; min-width: 250px;" alt="AMR CM">
+                        <img src="/docs/confusion_matrix_combined.png" style="width: 30%; min-width: 250px;" alt="Combined CM">
+                    </div>
                 </div>
             </div>
 
@@ -783,6 +1072,89 @@
     </div>
 
     <script>
+        // Navigation logic
+        function switchTab(tab) {
+            document.querySelectorAll(".nav-tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active"));
+            
+            if (tab === 'demo') {
+                document.getElementById("tab-demo").classList.add("active");
+                document.getElementById("panel-demo").classList.add("active");
+            } else {
+                document.getElementById("tab-metrics").classList.add("active");
+                document.getElementById("panel-metrics").classList.add("active");
+                loadMetrics();
+            }
+        }
+
+        // Confusion Matrix toggle logic
+        const cm_data = {
+            clean: { tn: 98, fp: 27, fn: 0, tp: 16 },
+            amr: { tn: 87, fp: 38, fn: 1, tp: 15 },
+            combined: { tn: 103, fp: 22, fn: 3, tp: 13 }
+        };
+
+        function switchCM(condition) {
+            document.querySelectorAll(".cm-toggle-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById(`cm-btn-${condition}`).classList.add("active");
+            
+            const data = cm_data[condition];
+            const total = data.tn + data.fp + data.fn + data.tp;
+            
+            document.getElementById("cm-tn").innerText = data.tn;
+            document.getElementById("cm-tn-pct").innerText = (data.tn / total * 100).toFixed(1) + "%";
+            
+            document.getElementById("cm-fp").innerText = data.fp;
+            document.getElementById("cm-fp-pct").innerText = (data.fp / total * 100).toFixed(1) + "%";
+            
+            document.getElementById("cm-fn").innerText = data.fn;
+            document.getElementById("cm-fn-pct").innerText = (data.fn / total * 100).toFixed(1) + "%";
+            
+            document.getElementById("cm-tp").innerText = data.tp;
+            document.getElementById("cm-tp-pct").innerText = (data.tp / total * 100).toFixed(1) + "%";
+        }
+
+        // Dynamic markdown parser
+        async function loadMetrics() {
+            try {
+                const res = await fetch("/docs/results_degraded.md");
+                const text = await res.text();
+                const lines = text.split("\n");
+                const tableBody = document.getElementById("dynamic-metrics-body");
+                tableBody.innerHTML = "";
+                
+                for (let line of lines) {
+                    if (line.startsWith("|") && !line.includes("Channel Condition") && !line.includes("---|")) {
+                        const parts = line.split("|").map(p => p.trim()).filter(p => p !== "");
+                        if (parts.length >= 7) {
+                            const tr = document.createElement("tr");
+                            const condition = parts[0].replace(/\*\*/g, "");
+                            const threshold = parts[1] || "-";
+                            const accuracy = parts[2].replace(/\*\*/g, "");
+                            const eer = parts[3].replace(/\*\*/g, "");
+                            const auc = parts[4].replace(/\*\*/g, "");
+                            const drop = parts[5] || "-";
+                            const increase = parts[6] || "-";
+                            
+                            tr.innerHTML = `
+                                <td><strong>${condition}</strong></td>
+                                <td><code>${threshold}</code></td>
+                                <td>${accuracy}</td>
+                                <td>${eer}</td>
+                                <td>${auc}</td>
+                                <td>${drop}</td>
+                                <td>${increase}</td>
+                            `;
+                            tableBody.appendChild(tr);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading metrics:", err);
+            }
+        }
+
+        // Waveform Visualizer
         const canvas = document.getElementById("waveform-canvas");
         const ctx = canvas.getContext("2d");
         let animationFrameId;
@@ -821,6 +1193,19 @@
         }
         drawVisualizer(false);
 
+        // State Tracking Visualizers (viva flow indicators)
+        function setStepState(step, state, descText) {
+            const card = document.getElementById(`step${step}-card`);
+            const desc = document.getElementById(`step${step}-desc`);
+            
+            card.classList.remove("active", "suspicious", "success");
+            desc.innerText = descText;
+            
+            if (state === 'active') card.classList.add("active");
+            else if (state === 'suspicious') card.classList.add("suspicious");
+            else if (state === 'success') card.classList.add("success");
+        }
+
         function log(message, type = "system") {
             const consoleBox = document.getElementById("console-box");
             const now = new Date();
@@ -846,17 +1231,14 @@
             percentText.innerText = Math.round(score * 100) + "%";
             
             const pill = document.getElementById("passive-status-pill");
-            if (score >= 0.7) {
+            if (score >= 0.7943) {
                 pill.className = "status-pill status-clean";
                 pill.innerText = "AUTHENTIC";
-            } else if (score >= 0.5) {
-                pill.className = "status-pill status-clean";
-                pill.style.color = "yellow";
-                pill.style.borderColor = "yellow";
-                pill.innerText = "RISK ALERT";
+                setStepState(1, "success", `Voice Authentic: ${Math.round(score*100)}%`);
             } else {
                 pill.className = "status-pill status-suspicious";
                 pill.innerText = "SUSPICIOUS";
+                setStepState(1, "suspicious", `Alert! Authenticity low: ${Math.round(score*100)}%`);
             }
         }
 
@@ -866,52 +1248,42 @@
         let isChallengeRecording = false;
         let mediaRecorder = null;
         let audioChunks = [];
-
-        // WebSocket Streaming States
         let ws = null;
         let isStreaming = false;
 
         async function startWebSocketStreaming() {
-            log("Initializing Real-Time WebSocket stream connection...");
+            log("Initializing WebSocket stream...");
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             ws = new WebSocket(`${protocol}//${window.location.host}/stream`);
             
             ws.onopen = () => {
-                log("WebSocket connection established. Starting microphone transmission...");
+                log("WebSocket connected. Streaming microphone data...");
+                setStepState(1, "active", "Streaming live microphone chunks...");
             };
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 currentPassiveScore = data.passive_authenticity_score;
                 updateGauge(currentPassiveScore);
-                log(`[Real-Time Score] Chunk #${data.chunk_id}: Authenticity = ${currentPassiveScore * 100}%. Status: ${data.status}`);
+                log(`[Real-Time Passive Score]: ${Math.round(currentPassiveScore * 100)}% (Status: ${data.status})`);
                 
                 if (data.trigger_challenge) {
-                    log(`[ALARM] Rolling score dropped below safety thresholds! Issuing verification challenge...`, "error");
+                    log(`[ALARM] Passive score dropped below safety threshold! Triggering challenge...`, "error");
                     requestChallenge();
                 }
             };
             
-            ws.onerror = (err) => {
-                log(`WebSocket error: ${err.message}`, "error");
-            };
+            ws.onclose = () => { log("WebSocket stream closed."); };
             
-            ws.onclose = () => {
-                log("WebSocket stream closed.");
-            };
-            
-            // Start capturing and streaming mic chunks every 500ms
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             mediaRecorder.ondataavailable = async (event) => {
                 if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-                    // Send binary chunk over websocket
                     const arrayBuffer = await event.data.arrayBuffer();
                     ws.send(arrayBuffer);
                 }
             };
             
-            // Request chunks every 500ms
             mediaRecorder.start(500);
             drawVisualizer(true);
         }
@@ -921,10 +1293,9 @@
                 mediaRecorder.stop();
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
             }
-            if (ws) {
-                ws.close();
-            }
+            if (ws) ws.close();
             drawVisualizer(false);
+            setStepState(1, "active", "Idle. Awaiting input.");
         }
 
         async function toggleStreaming() {
@@ -937,9 +1308,8 @@
                     isStreaming = true;
                     streamBtn.classList.add("recording");
                     streamText.innerText = "Stop Streaming";
-                    log("Streaming live microphone output in real-time...");
                 } catch (err) {
-                    log(`Microphone streaming start failed: ${err.message}`, "error");
+                    log(`Streaming failed: ${err.message}`, "error");
                 }
             } else {
                 isStreaming = false;
@@ -950,20 +1320,19 @@
         }
 
         async function runSimulation(filename, degradationMode, expectedClass) {
-            log(`Running preset simulation: ${filename} (Degradation: ${degradationMode.toUpperCase()})`);
+            log(`Running simulation preset: ${filename} (Codec: ${degradationMode.toUpperCase()})`);
             drawVisualizer(true);
+            setStepState(1, "active", "Analyzing call frame features...");
             
             const fileUrl = `/data/raw/ASVspoof2019_LA_dev/flac/${filename}`;
-            
             try {
                 const response = await fetch(fileUrl);
-                if (!response.ok) throw new Error("Audio file not found in data/raw/ splits directory.");
+                if (!response.ok) throw new Error("Audio file not found in dataset splits.");
                 const blob = await response.blob();
                 
                 const formData = new FormData();
                 formData.append("file", blob, filename);
                 
-                log(`Uploading with dynamic degradation query: \`/verify-passive?degradation=${degradationMode}\`...`);
                 const res = await fetch(`/verify-passive?degradation=${degradationMode}`, {
                     method: "POST",
                     body: formData
@@ -975,13 +1344,16 @@
                 if (res.ok) {
                     currentPassiveScore = data.passive_authenticity_score;
                     updateGauge(currentPassiveScore);
-                    log(`Scan complete. Authenticity score: ${currentPassiveScore}. Status: ${data.status}`);
+                    log(`Passive scan complete. Authenticity score: ${currentPassiveScore}.`);
                     
                     if (data.trigger_challenge) {
-                        log(`[ALARM] Passive score indicates spoofing footprint! Issuing dynamic call challenge...`, "error");
+                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response required.`, "error");
+                        setStepState(1, "suspicious", `Score: ${Math.round(currentPassiveScore*100)}% (Spoof Detected)`);
                         requestChallenge();
                     } else {
-                        log(`Voice verified. Monitoring continues.`);
+                        log(`Voice verified authentic.`);
+                        setStepState(1, "success", `Voice Authentic: ${Math.round(currentPassiveScore*100)}%`);
+                        setStepState(2, "active", "Step bypassed (Authentic).");
                         document.getElementById("submit-response-btn").disabled = true;
                     }
                 } else {
@@ -994,7 +1366,8 @@
         }
 
         async function requestChallenge() {
-            log("Requesting dynamic challenge from server...");
+            log("Requesting dynamic verification prompt...");
+            setStepState(2, "active", "Issuing dynamic verification challenge...");
             try {
                 const res = await fetch("/challenge/request", { method: "POST" });
                 const data = await res.json();
@@ -1002,11 +1375,11 @@
                 
                 document.getElementById("challenge-text").innerText = activeChallengeText;
                 document.getElementById("challenge-text").style.color = "#ffffff";
-                log(`Challenge received: "${activeChallengeText}"`);
+                log(`Challenge issued: "${activeChallengeText}"`);
                 
                 document.getElementById("submit-response-btn").disabled = false;
             } catch (err) {
-                log(`Failed to fetch challenge: ${err.message}`, "error");
+                log(`Challenge fetch failed: ${err.message}`, "error");
             }
         }
 
@@ -1014,9 +1387,7 @@
             audioChunks = [];
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
             mediaRecorder.start();
             drawVisualizer(true);
         }
@@ -1043,9 +1414,8 @@
                     isRecording = true;
                     recordBtn.classList.add("recording");
                     recordText.innerText = "Stop and Score";
-                    log("Recording live microphone stream...");
                 } catch (err) {
-                    log(`Could not access microphone: ${err.message}`, "error");
+                    log(`Could not record mic: ${err.message}`, "error");
                 }
             } else {
                 isRecording = false;
@@ -1061,25 +1431,22 @@
         async function sendToPassiveAPI(blob, filename) {
             const formData = new FormData();
             formData.append("file", blob, filename);
+            setStepState(1, "active", "Analyzing custom microphone sample...");
             
-            log("Uploading live capture stream for verification...");
             try {
-                const res = await fetch("/verify-passive", {
-                    method: "POST",
-                    body: formData
-                });
+                const res = await fetch("/verify-passive", { method: "POST", body: formData });
                 const data = await res.json();
                 
                 if (res.ok) {
                     currentPassiveScore = data.passive_authenticity_score;
                     updateGauge(currentPassiveScore);
-                    log(`Scan complete. Authenticity score: ${currentPassiveScore}. Status: ${data.status}`);
+                    log(`Scan complete. Authenticity score: ${currentPassiveScore}.`);
                     
                     if (data.trigger_challenge) {
-                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response recommended!`, "error");
+                        log(`[ALARM] Voice is suspicious! Dynamic challenge-response required.`, "error");
                         requestChallenge();
                     } else {
-                        log(`Voice verified. Call marked clean.`);
+                        log(`Voice verified authentic.`);
                         document.getElementById("submit-response-btn").disabled = true;
                     }
                 } else {
@@ -1093,7 +1460,7 @@
         async function toggleChallengeRecord() {
             const challengeBtn = document.getElementById("submit-response-btn");
             if (currentPassiveScore === null) {
-                log("Run a passive verification before responding to challenge.", "error");
+                log("Run passive verification first.", "error");
                 return;
             }
 
@@ -1103,7 +1470,7 @@
                     isChallengeRecording = true;
                     challengeBtn.innerText = "Stop Response";
                     challengeBtn.style.background = "#ef4444";
-                    log("Recording response to challenge...");
+                    setStepState(2, "active", "Recording user response... Speak the prompt!");
                 } catch (err) {
                     log(`Microphone access error: ${err.message}`, "error");
                 }
@@ -1111,7 +1478,7 @@
                 isChallengeRecording = false;
                 challengeBtn.innerText = "Record Response";
                 challengeBtn.style.background = "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))";
-                log("Processing response...");
+                setStepState(2, "active", "Transcribing speech offline using Whisper...");
                 
                 const blob = await stopMicRecording();
                 sendChallengeAPI(blob);
@@ -1124,20 +1491,22 @@
             formData.append("phrase", activeChallengeText);
             formData.append("passive_score", currentPassiveScore);
             
-            log("Uploading response to verify: `/challenge/verify`...");
+            log("Transcribing locally and fusing verification scores...");
             try {
-                const res = await fetch("/challenge/verify", {
-                    method: "POST",
-                    body: formData
-                });
+                const res = await fetch("/challenge/verify", { method: "POST", body: formData });
                 const data = await res.json();
                 
                 if (res.ok) {
-                    log("Challenge response analyzed via ML Fuser.");
+                    log("Fusion score computed successfully.");
+                    setStepState(2, "success", "Whisper Transcription Complete!");
                     
                     document.getElementById("report-section").style.display = "block";
                     document.getElementById("report-passive-score").innerText = Math.round(data.fusion_metrics.passive_score * 100) + "%";
                     document.getElementById("report-challenge-score").innerText = Math.round(data.fusion_metrics.challenge_score * 100) + "%";
+                    
+                    const transcriptVal = document.getElementById("report-transcript");
+                    transcriptVal.innerText = data.response_metrics.transcript || "(No speech detected)";
+                    transcriptVal.title = data.response_metrics.transcript;
                     
                     const finalScoreVal = document.getElementById("report-final-score");
                     const score = data.fusion_metrics.final_authenticity_score;
@@ -1145,10 +1514,15 @@
                     
                     if (score >= 0.5) {
                         finalScoreVal.style.color = "var(--accent-green)";
-                        log(`CALL VERIFIED: Challenge passed! Final authenticity score: ${score} - ${data.final_status}`);
+                        setStepState(3, "success", `Passed! Final Score: ${Math.round(score*100)}%`);
+                        log(`[VERDICT] CALL AUTHENTICATED: Challenge passed! - ${data.final_status}`);
                     } else {
                         finalScoreVal.style.color = "var(--accent-pink)";
-                        log(`[ALARM] CALL BLOCKED: Challenge failed! - ${data.final_status}`, "error");
+                        setStepState(3, "suspicious", `Blocked! Final Score: ${Math.round(score*100)}%`);
+                        log(`[ALARM VERDICT] CALL BLOCKED: Challenge failed! - ${data.final_status}`, "error");
+                        if (data.response_metrics.replay_attack_detected) {
+                            log(`[REPLAY ALARM] Replay attack flagged: transcribed content mismatched challenge context!`, "error");
+                        }
                     }
                 } else {
                     log(`API Error: ${data.detail}`, "error");
@@ -1161,7 +1535,7 @@
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            log(`Audio file uploaded: ${file.name}`);
+            log(`Uploaded audio: ${file.name}`);
             sendToPassiveAPI(file, file.name);
         }
     </script>

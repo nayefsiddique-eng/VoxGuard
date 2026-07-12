@@ -2,88 +2,60 @@
 **Project Title**: Real-Time AI Voice Clone and Deepfake Call Verification System
 **Department**: IoT / Communication Engineering Major Project
 
-This report documents the final empirical performance metrics of our challenge-response call verification system, trained and evaluated on **800 real speech files** from the **ASVspoof 2019 Logical Access (LA)** database.
+This report documents the final empirical performance metrics of our challenge-response call verification system, trained and evaluated on **800 speech files** from the **ASVspoof 2019 Logical Access (LA)** database under strictly **speaker-disjoint** partitions (zero speaker leakage across splits).
 
 ---
 
 ## 1. Clean Audio Spoof Detection Benchmarks
-Classifiers were trained on 120-dimensional pooled Mel-Frequency Cepstral Coefficients (MFCCs) including delta and double-delta derivatives.
+Classifiers were trained on 120-dimensional Mel-Frequency Cepstral Coefficients (MFCCs) including delta and double-delta derivatives. Evaluated on the strictly speaker-independent Eval split:
 
 | Model | Dev Accuracy | Dev AUC | Dev EER | Eval Accuracy | Eval AUC | Eval EER |
 |---|---|---|---|---|---|---|
-| **Random Forest** | **88.7%** | **0.9361** | **10.67%** | **91.2%** | **0.9490** | **9.20%** |
-| Multi-Layer Perceptron (MLP) | 86.0% | 0.9224 | 14.00% | 89.2% | 0.9484 | 12.00% |
-| Logistic Regression | 84.7% | 0.9170 | 14.00% | 85.2% | 0.9281 | 16.00% |
+| **Logistic Regression** | 86.7% | 0.9384 | 15.62% | **80.9%** | **0.9870** | **5.92%** |
+| Multi-Layer Perceptron (MLP) | 84.9% | 0.9329 | 13.75% | 77.3% | 0.9400 | 12.65% |
+| Random Forest | 85.8% | 0.9077 | 16.02% | 79.4% | 0.9565 | 11.85% |
 
 > [!NOTE]
-> **Random Forest** achieved the lowest Evaluation Equal Error Rate (**9.20%**) and was selected as the continuous passive monitor classifier (`detector.pkl`).
+> **Logistic Regression** generalized best under speaker-independent validation, achieving an Equal Error Rate of **5.92%**. It was saved as the primary voice authenticity classifier (`detector.pkl`).
 
 ---
 
-## 2. Telephony & Codec Channel Degradation Gaps
-The Random Forest model was evaluated across 250 evaluation files under codec compression, packet loss, and jitter.
+## 2. Calibrated Channel Degradation Benchmarks
+Evaluated on the Eval split using **per-condition threshold calibration** swept on the held-out Dev split:
 
-| Channel Condition | Accuracy | EER | Accuracy Drop | EER Increase |
-|---|---|---|---|---|
-| **Clean Baseline** | **91.2%** | **9.20%** | - | - |
-| AMR-NB Codec (8kHz) | 87.6% | 13.60% | -3.6% | +4.40% |
-| Opus Codec (Low Bitrate) | 88.8% | 12.80% | -2.4% | +3.60% |
-| Packet Loss Only (5% drops) | 89.2% | 14.40% | -2.0% | +5.20% |
-| **Combined (AMR + Loss + Jitter)**| **86.0%** | **15.20%** | **-5.2%** | **+6.00%** |
-
-### Physical & Acoustical Verification of Combined Degradation:
-Sanity checks running physical byte checks and waveform diagnostics on raw FLAC vs degraded output prove files are acoustically and physically distinct:
-* **Clean audio file size**: 78,383 bytes, variance: 0.011553, duration: 5.418s
-* **Combined degraded file size**: 59,256 bytes, variance: 0.009652, duration: 5.440s
-* **Net changes**: -19,127 bytes (compression decimation) and -0.001901 signal variance.
+| Channel Condition | Calibrated Threshold | Accuracy | EER | AUC | Accuracy Drop | EER Increase |
+|---|---|---|---|---|---|---|
+| **Clean Baseline** | 0.7943 | **80.9%** | **5.92%** | **0.9870** | - | - |
+| AMR-NB Codec | 0.9791 | 72.3% | 12.65% | 0.9645 | 8.5% | +6.73% |
+| Opus Codec | 0.1700 | 84.4% | 12.65% | 0.9660 | -3.5% | +6.73% |
+| **GSM Codec (Worst Single)** | 0.1863 | **76.6%** | **18.18%** | **0.9420** | **4.3%** | **+12.25%** |
+| Low Loss (5% Loss / 10ms Jitter) | 0.0557 | 59.6% | 6.73% | 0.9835 | 21.3% | +0.80% |
+| High Loss (15% Loss / 30ms Jitter) | 0.1241 | 78.7% | 11.45% | 0.9705 | 2.1% | +5.52% |
+| **Combined Severe Telephony** | 0.9038 | **80.9%** | **12.25%** | **0.9310** | **0.0%** | **+6.33%** |
 
 ---
 
 ## 3. Dynamic Challenge-Response Class Separation Gaps
 
 > [!WARNING]
-> **INVALID - DO NOT CITE FOR REPORT RESULTS**
-> This table is based on synthetic stand-in voices (gTTS/pyttsx3) rather than real human voice recordings paired with custom voice clones. It is presented solely for descriptive pipeline verification and should not be cited as a baseline statistical result.
+> **PRELIMINARY DATA ONLY - DO NOT CITE AS VALIDATED VIVA FINDINGS**
+> The table below is based on synthetic stand-in voices (gTTS as human, pyttsx3 as clone) rather than real human voice recordings paired with custom voice clones. It is presented solely for descriptive pipeline verification and should not be cited as a validated baseline statistical result.
 
-**Metric Definition**: The "Separation Gap" represents the statistical difference (mean ± standard deviation) computed across **N=10 distinct pairs** (10 Human stand-in sources vs 10 voice clone/spoof sources) per category.
-*Important Setup Change*: In this version, both the Human and Clone files speak the **exact matching challenge phrases** (digits, whispers, latency prompts) synthesized locally.
-- **Human Stand-in**: Generated using `gTTS` (natural Google Text-to-Speech accent).
-- **Clone Response**: Generated using `pyttsx3` (robotic SAPI5 Microsoft David).
+**Metric Definition**: The "Separation Gap" represents the statistical difference (mean ± standard deviation) computed across **N=10 distinct pairs** per category.
 
 | Challenge Type | Human Score (Mean ± SD) | Cloned Score (Mean ± SD) | **Separation Gap (Mean ± SD)** |
 |---|---|---|---|
-| **Non-Verbal Sound (Laugh)** | **60.3% ± 3.1%** | **29.2% ± 5.1%** | **31.0% ± 6.0%** (Best) |
-| Prosody Shift (Whisper) | 55.0% ± 2.6% | 26.0% ± 3.6% | **29.0% ± 3.5%** |
-| Latency Probe (Cognitive Math) | 58.6% ± 1.2% | 36.1% ± 3.6% | **22.5% ± 3.9%** |
-| Phrase Repetition (Digits) | 55.6% ± 1.4% | 33.7% ± 2.9% | **21.9% ± 3.5%** |
-
-### Explanation of Metric Shift:
-Compared to previous versions using unrelated ASVspoof clean files as stand-in humans, the separation gap shrunk from ~70% to **21.9% - 31.0%**. This occurs because the "Human" stand-in is synthesized using gTTS (to match the challenge text exactly). The passive spoofing detector (trained on real human studio speech) correctly flags these synthetic acoustic features, dropping the Human score from >90% to ~58%. However, a significant, stable **~22% to 31% separation gap** remains because the clone voice (pyttsx3 Microsoft David) is far more robotic and scores even lower on voice authenticity.
+| **Non-Verbal Sound (Laugh)** | **42.8% ± 3.3%** | **19.0% ± 3.4%** | **23.8% ± 5.8%** |
+| Prosody Shift (Whisper) | 38.6% ± 1.4% | 14.9% ± 4.2% | **23.7% ± 4.4%** |
+| Latency Probe (Cognitive Math) | 45.3% ± 3.8% | 24.2% ± 3.9% | **21.1% ± 4.3%** |
+| Phrase Repetition (Digits) | 40.2% ± 2.0% | 20.9% ± 3.3% | **19.3% ± 4.1%** |
 
 ---
 
-## 4. Score Fusion ML Upgrade Validation
-We trained a Logistic Regression fuser to decide authenticity based on call and challenge scores.
+## 4. Data Validity Changelog
+To ensure academic rigor, this changelog documents the three stages this challenge-response separation metric went through during project development:
 
-* **Dataset Size**: 300 total generated samples.
-* **Validation Methodology**: Evaluated strictly on a **70% training split (210 samples)** and **30% held-out test split (90 samples)**.
-* **Test Performance**:
-  * **Fixed-Weight Baseline Accuracy**: **86.67%** (test set)
-  * **Trained ML Fuser Accuracy**: **100.00%** (test set)
-  * **Accuracy Improvement**: **+13.33%** (test set)
-  * **Learned Hyperplane Weights**: Passive Score weight: `4.1575`, Challenge Score weight: `4.6424` (Intercept: `-6.2060`).
-
-### Decision Boundary Plot:
-The 300 score pairs and fuser boundary line are plotted at: [fuser_scatter_plot.png](file:///c:/Users/Admin%20pc/Desktop/voice%20detection/voice-deepfake-verify/docs/fuser_scatter_plot.png)
-
-> [!TIP]
-> The fuser achieves 100% held-out test accuracy because the 2D feature space `[passive, challenge]` is linearly separable. The fuser successfully learns the optimal hyperplane boundary to reject evasion (bypass) attacks that static averaging misclassifies.
-
----
-
-## 5. Chunked Streaming Latency Profile
-* **Processing Window**: 1.5-second rolling windows
-* **Average Compute Latency**: **367.07 ms** per chunk
-* **Warm Latency (Chunks 2 & 3)**: **119.43 ms - 141.72 ms**
-
-*Compute speeds easily qualify for live streaming integration (well below the 150 ms network delay budget).*
+1. **Stage 1 (N=1 Placeholder)**: Initially tested using a single placeholder pair of unrelated sine tones. This resulted in an artificially inflated `100%` separation gap that did not reflect acoustic speech characteristics.
+2. **Stage 2 (N=10 Mismatched-Content)**: Expanded to 10 pairs per category. However, the human and clone files were mapped to unrelated ASVspoof clean files reading generic sentences. The content did not match the issued challenge phrase, rendering the verification logic invalid for live call defense.
+3. **Stage 3 (N=10 Phrase-Matched Stand-Ins)**: Corrected the code to ensure both files spoken match the issued challenge exactly. Due to the lack of real human recordings and local cloning models during early CPU iterations, gTTS (Google TTS) was used as the human stand-in, and pyttsx3 (SAPI5) as the clone. Because the passive spoof detector flagged the gTTS audio's synthetic envelope, the human score dropped from 90% to 42%, narrowing the separation gap.
+4. **Planned Stage 4 (Future Work)**: Collect real human voice recordings from the user and synthesize cloned responses using local matching-content voice cloning models (e.g., Coqui TTS) to recompute authentic, validated speaker-cloned separation gaps.

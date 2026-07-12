@@ -237,6 +237,11 @@ async def websocket_stream(websocket: WebSocket):
 if os.path.exists(DATA_DIR):
     app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
+# Serve the docs directory statically at /docs
+docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
+if os.path.exists(docs_dir):
+    app.mount("/docs", StaticFiles(directory=docs_dir), name="docs")
+
 # Serve the frontend static directory at the root /
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR, exist_ok=True)
