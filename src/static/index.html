@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-base: #0a0e1a;
@@ -31,6 +33,33 @@
             --transition-speed: 0.2s;
         }
 
+        /* Light Theme Style Definitions Override */
+        body.light-theme {
+            --bg-base: #f1f5f9;
+            --bg-sidebar: #e2e8f0;
+            --bg-panel: rgba(255, 255, 255, 0.85);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(6, 182, 212, 0.6);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+        }
+
+        body.light-theme .soc-btn {
+            background: rgba(0, 0, 0, 0.03);
+            color: var(--text-main);
+        }
+
+        body.light-theme .events-scroll-box {
+            background: rgba(255, 255, 255, 0.9);
+            color: #0f172a;
+        }
+
+        body.light-theme .event-msg {
+            color: #1e293b;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -44,6 +73,7 @@
             min-height: 100vh;
             display: flex;
             overflow-x: hidden;
+            transition: background var(--transition-speed) ease, color var(--transition-speed) ease;
         }
 
         /* Sidebar Navigation Layout */
@@ -56,6 +86,7 @@
             justify-content: space-between;
             padding: 24px 16px;
             flex-shrink: 0;
+            transition: background var(--transition-speed) ease;
         }
 
         .brand-area {
@@ -69,7 +100,7 @@
             font-family: 'Outfit', sans-serif;
             font-size: 1.35rem;
             font-weight: 800;
-            background: linear-gradient(to right, #ffffff, var(--accent-cyan));
+            background: linear-gradient(to right, var(--accent-cyan), var(--accent-purple));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             display: flex;
@@ -125,8 +156,8 @@
         }
 
         .nav-item-btn:hover {
-            color: #ffffff;
-            background: rgba(255, 255, 255, 0.02);
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.04);
         }
 
         .nav-item-btn.active {
@@ -159,9 +190,6 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            background-image: 
-                radial-gradient(circle at 5% 5%, rgba(6, 182, 212, 0.03) 0%, transparent 40%),
-                radial-gradient(circle at 95% 95%, rgba(139, 92, 246, 0.03) 0%, transparent 40%);
         }
 
         .topbar {
@@ -170,7 +198,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(10, 14, 26, 0.8);
+            background: var(--bg-sidebar);
             backdrop-filter: blur(8px);
             position: sticky;
             top: 0;
@@ -215,8 +243,8 @@
         }
 
         .glass-card:hover {
-            border-color: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+            border-color: var(--border-hover);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
 
         /* Stepper Flow Component */
@@ -279,7 +307,7 @@
             color: var(--text-muted);
         }
 
-        .step-node.active .step-lbl { color: #ffffff; }
+        .step-node.active .step-lbl { color: var(--accent-cyan); }
         .step-node.success .step-lbl { color: var(--accent-green); }
         .step-node.error .step-lbl { color: var(--accent-red); }
 
@@ -390,7 +418,7 @@
         .soc-btn {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
-            color: #ffffff;
+            color: var(--text-main);
             padding: 12px;
             border-radius: var(--border-radius-md);
             font-weight: 600;
@@ -416,14 +444,10 @@
 
         .soc-btn.btn-active {
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-            color: var(--bg-base);
+            color: #ffffff;
             border: none;
             font-weight: 700;
             box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
-        }
-
-        .soc-btn.btn-active:hover {
-            box-shadow: 0 6px 18px rgba(6, 182, 212, 0.35);
         }
 
         .soc-btn.btn-recording {
@@ -613,10 +637,6 @@
             animation: spin-loader 0.8s linear infinite;
         }
 
-        @keyframes spin-loader {
-            to { transform: rotate(360deg); }
-        }
-
         /* Waveform styling */
         canvas {
             width: 100%;
@@ -638,6 +658,29 @@
             .specs-grid {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* Empty State styles */
+        .empty-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            font-size: 2.2rem;
+            margin-bottom: 12px;
+            opacity: 0.7;
+        }
+
+        /* Drag & drop styles */
+        .dropzone-active {
+            border-color: var(--accent-cyan) !important;
+            background: rgba(6, 182, 212, 0.08) !important;
         }
     </style>
 </head>
@@ -674,17 +717,21 @@
         </ul>
 
         <div class="sidebar-footer">
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button class="soc-btn" onclick="toggleTheme()" style="flex: 1; padding: 6px; font-size: 0.75rem;">🌓 Theme</button>
+                <button class="soc-btn" onclick="exportSessionReport()" style="flex: 1; padding: 6px; font-size: 0.75rem;">📥 Export</button>
+            </div>
             <div class="status-metric">
-                <span>FastAPI Base</span>
+                <span title="The passive voice clone classifier loaded state">FastAPI Base</span>
                 <span id="side-models-loaded" style="color: var(--accent-green);">ONLINE</span>
             </div>
             <div class="status-metric">
-                <span>Whisper CPU</span>
+                <span title="Whisper model loading for voice footprints">Whisper CPU</span>
                 <span id="side-whisper-loaded" style="color: var(--accent-green);">LOADED</span>
             </div>
             <div class="status-metric">
-                <span>System Uptime</span>
-                <span id="side-uptime" style="color: #ffffff;">0.0s</span>
+                <span title="Total backend uptime counter">System Uptime</span>
+                <span id="side-uptime" style="color: var(--text-main);">0.0s</span>
             </div>
         </div>
     </div>
@@ -700,19 +747,19 @@
         <div class="panel-container active" id="route-monitor">
             <!-- Connected Stepper Flow Indicator -->
             <div class="stepper-timeline">
-                <div class="step-node" id="step1-node">
+                <div class="step-node" id="step1-node" title="Continuous frame speaker verification checks">
                     <div class="step-indicator">01</div>
-                    <span class="step-lbl">Passive Monitoring Scan</span>
+                    <span class="step-lbl">Passive Scan</span>
                 </div>
                 <div class="step-connector" id="connector-1"></div>
-                <div class="step-node" id="step2-node">
+                <div class="step-node" id="step2-node" title="Whisper verification phrase verification checks">
                     <div class="step-indicator">02</div>
-                    <span class="step-lbl">Dynamic Context Challenge</span>
+                    <span class="step-lbl">Vocal Challenge</span>
                 </div>
                 <div class="step-connector" id="connector-2"></div>
-                <div class="step-node" id="step3-node">
+                <div class="step-node" id="step3-node" title="Decision boundary score fusion checks">
                     <div class="step-indicator">03</div>
-                    <span class="step-lbl">Fused Security Verdict</span>
+                    <span class="step-lbl">Security Verdict</span>
                 </div>
             </div>
 
@@ -720,18 +767,18 @@
                 <!-- Monitor Console Left Stack -->
                 <div>
                     <!-- Preset Selection Deck -->
-                    <div class="actions-deck">
-                        <button class="soc-btn" onclick="runPreset('LA_E_9691199.flac', 'none')">
-                            <span>🟢</span> Human Preset
+                    <div class="actions-deck" title="Attack Scenario Presets library">
+                        <button class="soc-btn" id="preset-btn-0" onclick="runPresetIndex(0)">
+                            <span>🟢</span> Clean Human Call
                         </button>
-                        <button class="soc-btn" onclick="runPreset('LA_E_1030819.flac', 'none')">
-                            <span>🔴</span> Spoof Preset
+                        <button class="soc-btn" id="preset-btn-1" onclick="runPresetIndex(1)">
+                            <span>🔴</span> AI Voice Clone
                         </button>
-                        <button class="soc-btn" onclick="runPreset('LA_E_9691199.flac', 'amr')">
-                            <span>📱</span> Human (AMR-NB)
+                        <button class="soc-btn" id="preset-btn-2" onclick="runPresetIndex(2)">
+                            <span>📱</span> Cellular Attack
                         </button>
-                        <button class="soc-btn" onclick="runPreset('LA_E_1030819.flac', 'combined')">
-                            <span>⚠️</span> Spoof (Combined Loss)
+                        <button class="soc-btn" id="preset-btn-3" onclick="runPresetIndex(3)">
+                            <span>⚠️</span> Codec Degradation
                         </button>
                     </div>
 
@@ -741,7 +788,7 @@
                         <div class="glass-card gauge-panel" style="position: relative;">
                             <div class="glass-loader" id="gauge-loader"></div>
                             <div class="results-header-bar" style="width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 20px;">
-                                <span class="results-header-title">Authenticity Index</span>
+                                <span class="results-header-title" title="Real-time fused authenticity score metric">Authenticity Index</span>
                                 <span id="verdict-badge" class="pill-badge pill-pending">Pending Scan</span>
                             </div>
                             
@@ -752,24 +799,31 @@
                                 </svg>
                                 <div class="gauge-readout">
                                     <span id="gauge-val" class="gauge-number">—</span>
-                                    <span class="gauge-title">CONFIDENCE</span>
+                                    <span class="gauge-title" title="Confidence accuracy boundary">CONFIDENCE</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Real-time Web Audio Visualizer -->
+                        <!-- Real-time Web Audio Visualizer / Drag and drop zone -->
                         <div class="glass-card visualizer-card">
                             <div class="results-header-bar" style="border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 12px;">
                                 <span class="results-header-title">Input Signal Spectral Analysis</span>
                             </div>
                             <canvas id="live-oscilloscope"></canvas>
                             
+                            <!-- Drag and drop container -->
+                            <div id="drop-zone" onclick="triggerFileSelect()">
+                                <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">📁</span>
+                                <span style="font-size: 0.8rem; font-weight: 600;">Drag & Drop audio file or <span style="color: var(--accent-cyan); text-decoration: underline;">Browse</span></span>
+                                <input type="file" id="file-input" accept=".wav,.flac" style="display: none;" onchange="handleFileSelect(event)">
+                            </div>
+                            
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;">
                                 <button id="btn-record-mic" class="soc-btn" onclick="toggleRecordMic()">
-                                    <span>🎤</span> Record Call Chunk
+                                    <span>🎤</span> Record Chunk
                                 </button>
                                 <button id="btn-stream-mic" class="soc-btn" onclick="toggleStreamingMic()">
-                                    <span>⚡</span> Stream Real-Time
+                                    <span>⚡</span> Stream Live
                                 </button>
                             </div>
                         </div>
@@ -779,7 +833,7 @@
                     <div class="glass-card" style="position: relative; min-height: 180px; display: flex; flex-direction: column; justify-content: space-between;">
                         <div class="glass-loader" id="challenge-loader"></div>
                         <div class="results-header-bar" style="border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">
-                            <span class="results-header-title">Acoustic Verification Challenge Agent</span>
+                            <span class="results-header-title" title="Active speech-to-text transcription challenge parameters">Acoustic Verification Challenge Agent</span>
                         </div>
                         <div id="challenge-prompt-text" style="font-family: var(--text-monospace); font-size: 1.15rem; color: var(--text-muted); font-style: italic; text-align: center; margin: 15px 0;">
                             No verification challenge currently active.
@@ -798,7 +852,7 @@
                         <button onclick="clearConsoleEvents()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">Clear</button>
                     </div>
                     <div class="events-scroll-box" id="soc-events-box">
-                        <div class="event-item"><span class="event-time">00:00:00</span><span class="event-comp">SYSTEM</span><span class="event-msg">Engine listener online. Awaiting frames...</span></div>
+                        <!-- Initial state handeled dynamically -->
                     </div>
                 </div>
             </div>
@@ -812,16 +866,14 @@
                         <tr>
                             <th>Timestamp</th>
                             <th>Sample Reference</th>
-                            <th>Passive Score</th>
-                            <th>Challenge Content</th>
-                            <th>Verdict Confidence</th>
+                            <th title="Authenticity score from the initial passive classifier scan">Passive Score</th>
+                            <th title="Statistical challenge content alignment score">Challenge Content</th>
+                            <th title="Final combined accuracy classification score">Verdict Confidence</th>
                             <th>System Action</th>
                         </tr>
                     </thead>
                     <tbody id="history-table-rows">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No verification runs recorded in this session.</td>
-                        </tr>
+                        <!-- Managed via script -->
                     </tbody>
                 </table>
             </div>
@@ -846,10 +898,10 @@
                         <thead>
                             <tr>
                                 <th>Condition</th>
-                                <th>Threshold</th>
-                                <th>Accuracy</th>
-                                <th>EER</th>
-                                <th>AUC</th>
+                                <th title="Threshold optimized on clean development set data">Threshold</th>
+                                <th title="Accuracy with 95% binomial confidence intervals">Accuracy (95% CI)</th>
+                                <th title="Equal Error Rate indicating classification crossovers">EER</th>
+                                <th title="Area Under the ROC Curve indicating general robustness">AUC</th>
                                 <th>Acc Drop</th>
                                 <th>EER Increase</th>
                             </tr>
@@ -866,8 +918,7 @@
                 <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                         <div class="results-header-bar" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px;">
-                            <span class="results-header-title">Incident Detection Matrix</span>
-                            <!-- Custom inline layout switcher -->
+                            <span class="results-header-title" title="True Positive/Negative classification ratios">Incident Detection Matrix</span>
                             <div class="presets-grid" style="display: flex; gap: 4px; background: rgba(255, 255, 255, 0.02); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
                                 <button class="soc-btn" id="m-btn-clean" onclick="renderCM('clean')" style="padding: 4px 10px; font-size: 0.72rem; border-radius: 4px;">Clean</button>
                                 <button class="soc-btn" id="m-btn-amr" onclick="renderCM('amr')" style="padding: 4px 10px; font-size: 0.72rem; border-radius: 4px;">AMR</button>
@@ -880,25 +931,25 @@
                             <!-- TN -->
                             <div style="background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.12); padding: 20px; border-radius: var(--border-radius-md); text-align: center;">
                                 <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">True Negative (Block)</div>
-                                <div id="m-tn" style="font-size: 2.2rem; font-weight: 700; color: #ffffff; font-family: var(--text-monospace);">—</div>
+                                <div id="m-tn" style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); font-family: var(--text-monospace);">—</div>
                                 <div id="m-tn-pct" style="font-size: 0.76rem; color: var(--text-muted); font-family: var(--text-monospace); margin-top: 2px;">—</div>
                             </div>
                             <!-- FP -->
                             <div style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.12); padding: 20px; border-radius: var(--border-radius-md); text-align: center;">
                                 <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">False Positive (Leak)</div>
-                                <div id="m-fp" style="font-size: 2.2rem; font-weight: 700; color: #ffffff; font-family: var(--text-monospace);">—</div>
+                                <div id="m-fp" style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); font-family: var(--text-monospace);">—</div>
                                 <div id="m-fp-pct" style="font-size: 0.76rem; color: var(--text-muted); font-family: var(--text-monospace); margin-top: 2px;">—</div>
                             </div>
                             <!-- FN -->
                             <div style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.12); padding: 20px; border-radius: var(--border-radius-md); text-align: center;">
                                 <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">False Negative (Alarm)</div>
-                                <div id="m-fn" style="font-size: 2.2rem; font-weight: 700; color: #ffffff; font-family: var(--text-monospace);">—</div>
+                                <div id="m-fn" style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); font-family: var(--text-monospace);">—</div>
                                 <div id="m-fn-pct" style="font-size: 0.76rem; color: var(--text-muted); font-family: var(--text-monospace); margin-top: 2px;">—</div>
                             </div>
                             <!-- TP -->
                             <div style="background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.12); padding: 20px; border-radius: var(--border-radius-md); text-align: center;">
                                 <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">True Positive (Pass)</div>
-                                <div id="m-tp" style="font-size: 2.2rem; font-weight: 700; color: #ffffff; font-family: var(--text-monospace);">—</div>
+                                <div id="m-tp" style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); font-family: var(--text-monospace);">—</div>
                                 <div id="m-tp-pct" style="font-size: 0.76rem; color: var(--text-muted); font-family: var(--text-monospace); margin-top: 2px;">—</div>
                             </div>
                         </div>
@@ -906,19 +957,21 @@
                 </div>
             </div>
 
-            <!-- Dynamic Plot Images Grid -->
-            <div class="monitor-deck">
-                <div class="glass-card" style="text-align: center;">
+            <!-- Chart.js line plot sensitivity row & metrics -->
+            <div class="benchmarks-grid">
+                <!-- Dynamic Chart.js container -->
+                <div class="glass-card" style="min-height: 310px;">
                     <div class="results-header-bar" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 16px;">
-                        <span class="results-header-title">Weight Distributions Magnitude</span>
+                        <span class="results-header-title">Threshold Calibration Sensitivity Curve</span>
                     </div>
-                    <img src="/docs/feature_importance.png" style="max-width: 100%; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);" alt="Weights Plot">
+                    <canvas id="sensitivity-chart" style="width: 100%; height: 210px; display: block;"></canvas>
                 </div>
+                <!-- Dynamic Plot Images Grid -->
                 <div class="glass-card" style="text-align: center;">
                     <div class="results-header-bar" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 16px;">
                         <span class="results-header-title">Verification ROC Analysis Curves</span>
                     </div>
-                    <img src="/docs/roc_curves.png" style="max-width: 100%; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);" alt="ROC Curves">
+                    <img src="/docs/roc_curves.png" style="max-width: 100%; max-height: 220px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);" alt="ROC Curves">
                 </div>
             </div>
         </div>
@@ -948,7 +1001,7 @@
                 </div>
                 <div class="glass-card">
                     <h3 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--accent-green);">Score Fusion Fuser</h3>
-                    <p style="font-size: 0.84rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">Decision fusion parameters utilize a trained binary Logistic Regression boundary that calibrates passive and dynamic scores.</p>
+                    <p style="font-size: 0.84rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">Decision fusion parameters utilize a trained binary Logistic Regression boundary that calibrates passive and active scores.</p>
                     <ul style="font-family: var(--text-monospace); font-size: 0.76rem; color: var(--text-main); list-style: none; display: flex; flex-direction: column; gap: 6px;">
                         <li><strong>Fusion method:</strong> ML Logistic Fuser</li>
                         <li><strong>Passive weight:</strong> Calibrated</li>
@@ -987,9 +1040,16 @@
             
             if (routeId === 'results') {
                 loadJSONResults();
+                loadSensitivityData();
             } else if (routeId === 'history') {
                 loadHistoryTable();
             }
+        }
+
+        // Dark/Light theme toggle
+        function toggleTheme() {
+            document.body.classList.toggle("light-theme");
+            addClientLog("SYSTEM", "Theme switched manually by user toggle.", "INFO");
         }
 
         // SVGArc Gauge Fill Updater (283 is half perimeter approx)
@@ -1113,6 +1173,50 @@
         let audioChunks = [];
         let ws = null;
         let isStreaming = false;
+        let activePresetIndex = 0;
+
+        // Preset Library Scenarios mapping
+        const PRESETS = [
+            { file: 'LA_E_9691199.flac', degradation: 'none', label: 'Clean Human Call' },
+            { file: 'LA_E_1030819.flac', degradation: 'none', label: 'AI Voice Clone' },
+            { file: 'LA_E_1030819.flac', degradation: 'combined', label: 'Cellular Attack' },
+            { file: 'LA_E_9691199.flac', degradation: 'amr', label: 'Codec Degradation' }
+        ];
+
+        function runPresetIndex(index) {
+            activePresetIndex = index;
+            document.querySelectorAll(".actions-deck button").forEach((b, i) => {
+                if (i === index) b.classList.add("btn-active");
+                else b.classList.remove("btn-active");
+            });
+            const p = PRESETS[index];
+            runPreset(p.file, p.degradation);
+        }
+
+        // Keyboard Shortcuts Handler
+        document.addEventListener("keydown", function(e) {
+            if (e.code === "Space") {
+                e.preventDefault();
+                // Advance to next preset scenario
+                const nextIndex = (activePresetIndex + 1) % PRESETS.length;
+                runPresetIndex(nextIndex);
+            } else if (e.code === "Escape") {
+                resetConsoleState();
+            }
+        });
+
+        function resetConsoleState() {
+            currentPassiveScore = null;
+            activeChallengeText = null;
+            document.getElementById("challenge-prompt-text").innerHTML = "No verification challenge currently active.";
+            document.getElementById("challenge-prompt-text").style.color = "var(--text-muted)";
+            document.getElementById("btn-record-challenge").disabled = true;
+            setGaugeScore(0.0);
+            setStepProgress(1, "");
+            setStepProgress(2, "");
+            setStepProgress(3, "");
+            addClientLog("SYSTEM", "Console workspace indicators reset by user Escape command.", "INFO");
+        }
 
         // UI loading overlays
         function toggleUIBlock(panel, show) {
@@ -1122,6 +1226,21 @@
             }
         }
 
+        // Add local client logs to event log immediately
+        function addClientLog(comp, msg, severity="INFO") {
+            const box = document.getElementById("soc-events-box");
+            // Remove empty state if present
+            const placeholder = box.querySelector(".empty-placeholder");
+            if (placeholder) placeholder.remove();
+
+            const timeStr = new Date().toLocaleTimeString();
+            const div = document.createElement("div");
+            div.className = `event-item ${severity.toLowerCase()}`;
+            div.innerHTML = `<span class="event-time">${timeStr}</span><span class="event-comp">${comp}</span><span class="event-msg">${msg}</span>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
         // Synchronize Server Events Logs
         let lastEventCount = 0;
         async function pollSystemEvents() {
@@ -1129,6 +1248,10 @@
                 const res = await fetch("/events");
                 if (res.ok) {
                     const events = await res.json();
+                    if (events.length === 0) {
+                        renderEventsEmptyState();
+                        return;
+                    }
                     if (events.length !== lastEventCount) {
                         const box = document.getElementById("soc-events-box");
                         box.innerHTML = "";
@@ -1146,19 +1269,44 @@
                 console.error("Error polling system events:", err);
             }
         }
-        setInterval(pollSystemEvents, 700);
+        setInterval(pollSystemEvents, 800);
+
+        function renderEventsEmptyState() {
+            const box = document.getElementById("soc-events-box");
+            if (!box.querySelector(".empty-placeholder")) {
+                box.innerHTML = `
+                    <div class="empty-placeholder">
+                        <div class="empty-icon">📡</div>
+                        <div style="font-size: 0.8rem; font-weight: 600;">No Event Logs Recieved</div>
+                        <div style="font-size: 0.72rem; margin-top: 4px;">Run a demo preset or record a voice input segment to generate logs.</div>
+                    </div>
+                `;
+            }
+        }
 
         // Synchronize Call History table
+        let cachedHistoryJson = [];
         async function loadHistoryTable() {
             try {
                 const res = await fetch("/history");
                 if (res.ok) {
                     const list = await res.json();
+                    cachedHistoryJson = list;
                     const tbody = document.getElementById("history-table-rows");
                     tbody.innerHTML = "";
                     
                     if (list.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No verification runs recorded in this session.</td></tr>`;
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-placeholder">
+                                        <div class="empty-icon">📜</div>
+                                        <div style="font-size: 0.84rem; font-weight: 600; color: var(--text-muted);">No Calls Verified Yet</div>
+                                        <div style="font-size: 0.76rem; margin-top: 4px;">Verified calls in this active session will be tabulated here.</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
                         return;
                     }
                     
@@ -1185,7 +1333,7 @@
             }
         }
 
-        // Synchronize System Status indicator variables
+        // Synchronize System Status indicators
         async function getSystemStatus() {
             try {
                 const res = await fetch("/system-status");
@@ -1217,7 +1365,7 @@
                 console.error("System diagnostics failed:", err);
             }
         }
-        setInterval(getSystemStatus, 1500);
+        setInterval(getSystemStatus, 2000);
         getSystemStatus();
 
         // Load JSON results dynamically
@@ -1237,7 +1385,7 @@
                         tr.innerHTML = `
                             <td><strong>${b.condition}</strong></td>
                             <td class="monospace">${b.threshold}</td>
-                            <td class="monospace">${(b.accuracy * 100).toFixed(1)}%</td>
+                            <td class="monospace">${b.accuracy_ci}</td>
                             <td class="monospace">${(b.eer * 100).toFixed(2)}%</td>
                             <td class="monospace">${b.auc.toFixed(4)}</td>
                             <td class="monospace">${(b.accuracy_drop * 100).toFixed(1)}%</td>
@@ -1283,8 +1431,163 @@
             document.getElementById("m-tp-pct").innerText = (matrix.tp / total * 100).toFixed(1) + "%";
         }
 
+        // Drag & drop dropzone integration
+        const dropZone = document.getElementById("drop-zone");
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add("dropzone-active");
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dropzone-active");
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleUploadedFile(files[0]);
+            }
+        });
+
+        function triggerFileSelect() {
+            document.getElementById("file-input").click();
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleUploadedFile(files[0]);
+            }
+        }
+
+        function handleUploadedFile(file) {
+            addClientLog("SYSTEM", `Custom audio file loaded: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, "INFO");
+            sendToPassiveCheck(file, file.name);
+        }
+
+        // Export Session Report dynamically in Markdown format
+        function exportSessionReport() {
+            let md = `# VoxGuard Verification Session Security Report\n`;
+            md += `Generated: ${new Date().toLocaleString()}\n`;
+            md += `Uptime duration: ${document.getElementById("side-uptime").innerText}\n\n`;
+            
+            md += `## 1. Calibrated Performance Benchmarks\n\n`;
+            if (cachedResults) {
+                md += `| Condition | Threshold | Accuracy (95% CI) | EER | AUC |\n`;
+                md += `|---|---|---|---|---|\n`;
+                cachedResults.degradation_benchmarks.forEach(b => {
+                    md += `| ${b.condition} | ${b.threshold} | ${b.accuracy_ci} | ${(b.eer*100).toFixed(1)}% | ${b.auc.toFixed(4)} |\n`;
+                });
+            } else {
+                md += `Benchmarks data not loaded in this session.\n`;
+            }
+            
+            md += `\n## 2. Call Verification Logs\n\n`;
+            if (cachedHistoryJson.length > 0) {
+                md += `| Timestamp | Filename | Passive Score | Challenge Score | Final Fused | Verdict |\n`;
+                md += `|---|---|---|---|---|---|\n`;
+                cachedHistoryJson.forEach(row => {
+                    const chal = row.challenge_score !== null ? row.challenge_score : "—";
+                    md += `| ${row.timestamp} | ${row.filename} | ${row.passive_score} | ${chal} | ${row.final_score} | **${row.verdict}** |\n`;
+                });
+            } else {
+                md += `No calls verified during this session yet.\n`;
+            }
+            
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `voxguard_session_report.md`;
+            a.click();
+            addClientLog("SYSTEM", "Session markdown security report generated and downloaded.", "SUCCESS");
+        }
+
+        // Load Threshold Sensitivity and Draw Chart.js Line Plot
+        let sensitivityChart = null;
+        async function loadSensitivityData() {
+            if (sensitivityChart) return;
+            try {
+                const res = await fetch("/results/sensitivity");
+                if (res.ok) {
+                    const list = await res.json();
+                    
+                    const labels = list.map(item => item.threshold);
+                    const accData = list.map(item => item.accuracy);
+                    const fprData = list.map(item => item.fpr);
+                    const fnrData = list.map(item => item.fnr);
+                    
+                    const ctx = document.getElementById("sensitivity-chart").getContext("2d");
+                    sensitivityChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Accuracy',
+                                    data: accData,
+                                    borderColor: '#06b6d4',
+                                    backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                                    borderWidth: 2,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'FPR (False Positive Rate)',
+                                    data: fprData,
+                                    borderColor: '#ef4444',
+                                    borderWidth: 1.5,
+                                    borderDash: [5, 5],
+                                    fill: false,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'FNR (False Negative Rate)',
+                                    data: fnrData,
+                                    borderColor: '#f59e0b',
+                                    borderWidth: 1.5,
+                                    borderDash: [5, 5],
+                                    fill: false,
+                                    tension: 0.3
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#64748b',
+                                        font: { family: 'Plus Jakarta Sans', size: 10 }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: { display: true, text: 'Decision Threshold', color: '#64748b' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.02)' },
+                                    ticks: { color: '#64748b' }
+                                },
+                                y: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.02)' },
+                                    ticks: { color: '#64748b' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading sensitivity data:", err);
+            }
+        }
+
         function clearConsoleEvents() {
-            // Client side wrapper, backend handles polling.
             lastEventCount = -1;
         }
 
@@ -1323,7 +1626,7 @@
                     await startMicRecord();
                     isRecording = true;
                     btn.classList.add("btn-recording");
-                    btn.innerText = "Stop Scanning Call";
+                    btn.innerText = "Stop Scanning";
                     setStepProgress(1, "active");
                 } catch (err) {
                     console.error("Record mic failed:", err);
@@ -1331,7 +1634,7 @@
             } else {
                 isRecording = false;
                 btn.classList.remove("btn-recording");
-                btn.innerText = "Record Call Chunk";
+                btn.innerText = "Record Chunk";
                 
                 const blob = await stopMicRecord();
                 sendToPassiveCheck(blob, "live_mic_sample.wav");
@@ -1422,14 +1725,14 @@
                     await startStreamingMic();
                     isStreaming = true;
                     btn.classList.add("btn-recording");
-                    btn.innerText = "Stop Real-Time";
+                    btn.innerText = "Stop Stream";
                 } catch (err) {
                     console.error("Streaming mic activation failed:", err);
                 }
             } else {
                 isStreaming = false;
                 btn.classList.remove("btn-recording");
-                btn.innerText = "Stream Real-Time";
+                btn.innerText = "Stream Live";
                 stopStreamingMic();
             }
         }
@@ -1511,7 +1814,7 @@
             } else {
                 isChallengeRecording = false;
                 btn.classList.remove("btn-recording");
-                btn.innerText = "Record Prompt Response";
+                btn.innerText = "Record Response";
                 btn.disabled = true;
                 
                 toggleUIBlock("challenge", true);
@@ -1556,6 +1859,7 @@
 
         // Draw flat baseline canvas representation on initial state loads
         stopOscilloscope();
+        renderEventsEmptyState();
     </script>
 </body>
 </html>

@@ -139,19 +139,53 @@ def main():
     docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../docs"))
     results_path = os.path.join(docs_dir, "results_degraded.md")
     
+    import math
+    def compute_confidence_interval(acc, n=141):
+        return 1.96 * math.sqrt((acc * (1 - acc)) / n)
+        
+    ci_clean = compute_confidence_interval(clean_acc)
+    
     with open(results_path, "w") as f:
         f.write("# Calibrated Channel Degradation Benchmarks (Expanded Matrix)\n\n")
         f.write("This table compares performance drops under telephony codecs and network channel simulation, using **per-condition calibrated thresholds** on held-out Dev data.\n\n")
-        f.write("| Channel Condition | Calibrated Threshold | Accuracy | EER | AUC | Accuracy Drop | EER Increase |\n")
+        f.write("| Channel Condition | Calibrated Threshold | Accuracy (95% CI) | EER | AUC | Accuracy Drop | EER Increase |\n")
         f.write("|---|---|---|---|---|---|---|\n")
-        f.write(f"| **Clean Baseline** | {clean_threshold:.4f} | **{clean_acc*100:.1f}%** | **{clean_eer*100:.2f}%** | **{clean_auc:.4f}** | - | - |\n")
+        f.write(f"| **Clean Baseline** | {clean_threshold:.4f} | **{clean_acc*100:.1f}% ± {ci_clean*100:.1f}%** | **{clean_eer*100:.2f}%** | **{clean_auc:.4f}** | - | - |\n")
         for name, res in degradation_results.items():
-            f.write(f"| {name} | {res['threshold']:.4f} | {res['acc']*100:.1f}% | {res['eer']*100:.2f}% | {res['auc']:.4f} | {res['acc_gap']*100:.1f}% | {res['eer_gap']*100:.2f}% |\n")
+            ci_deg = compute_confidence_interval(res['acc'])
+            f.write(f"| {name} | {res['threshold']:.4f} | {res['acc']*100:.1f}% ± {ci_deg*100:.1f}% | {res['eer']*100:.2f}% | {res['auc']:.4f} | {res['acc_gap']*100:.1f}% | {res['eer_gap']*100:.2f}% |\n")
             
         f.write("\n> [!NOTE]\n")
         f.write("> calibrating the decision threshold for each channel condition dramatically improves classification accuracy (AMR-NB accuracy rises from 21.3% uncalibrated to 89.4% calibrated). However, severe codecs like GSM and Combined Telephony still suffer a net EER increase of +6.00%, proving that compressed cellular lines reduce detection boundaries.\n")
         
     print(f"\nGenerated calibrated results benchmarks file: {results_path}")
+    
+    # 6. Generate Threshold Sensitivity Metrics
+    from sklearn.metrics import confusion_matrix
+    threshold_sensitivity = []
+    clean_labels = np.array([s["label"] for s in eval_samples])
+    _, _, _, clean_eval_probs = run_eval_on_dataset(eval_samples, feature_type="mfcc", model=model, threshold=0.5)
+    
+    thresholds_to_sweep = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    for t in thresholds_to_sweep:
+        t_preds = (clean_eval_probs >= t).astype(int)
+        t_acc = accuracy_score(clean_labels, t_preds)
+        cm = confusion_matrix(clean_labels, t_preds)
+        tn, fp, fn, tp = cm.ravel() if len(cm.ravel()) == 4 else (0,0,0,0)
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0.0
+        threshold_sensitivity.append({
+            "threshold": t,
+            "accuracy": float(t_acc),
+            "fpr": float(fpr),
+            "fnr": float(fnr)
+        })
+        
+    import json
+    sensitivity_path = os.path.join(docs_dir, "threshold_sensitivity.json")
+    with open(sensitivity_path, "w") as sf_json:
+        json.dump(threshold_sensitivity, sf_json, indent=4)
+    print(f"Generated threshold sensitivity metrics file: {sensitivity_path}")
     
     # Cleanup temp dirs
     for d in [dev_degraded_dir, eval_degraded_dir]:

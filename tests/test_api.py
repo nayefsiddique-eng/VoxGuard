@@ -173,6 +173,18 @@ def main():
         assert "degradation_benchmarks" in summary_data
         assert "clean" in summary_data["confusion_matrices"]
         
+        # --- Endpoint 9: Get Results Sensitivity ---
+        print("\n9. Testing GET /results/sensitivity...")
+        res = requests.get(f"{base_url}/results/sensitivity")
+        sensitivity_data = res.json()
+        print("Response (First entry):", sensitivity_data[0])
+        assert res.status_code == 200
+        assert isinstance(sensitivity_data, list)
+        assert "threshold" in sensitivity_data[0]
+        assert "accuracy" in sensitivity_data[0]
+        assert "fpr" in sensitivity_data[0]
+        assert "fnr" in sensitivity_data[0]
+        
         print("\nAll endpoints and authentic real-vs-fake classifications verified successfully!")
         
     except Exception as e:

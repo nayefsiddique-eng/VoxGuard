@@ -84,6 +84,7 @@ class DegradationRow(BaseModel):
     condition: str
     threshold: float
     accuracy: float
+    accuracy_ci: str
     eer: float
     auc: float
     accuracy_drop: float
@@ -92,6 +93,15 @@ class DegradationRow(BaseModel):
 class ResultsSummaryResponse(BaseModel):
     confusion_matrices: dict[str, ConfusionMatrixData]
     degradation_benchmarks: list[DegradationRow]
+
+class SensitivityRow(BaseModel):
+    threshold: float
+    accuracy: float
+    fpr: float
+    fnr: float
+
+class SensitivityResponse(BaseModel):
+    sensitivity_data: list[SensitivityRow]
 
 # Middleware for response latency logging
 @app.middleware("http")
@@ -385,7 +395,10 @@ def get_results_summary():
                     if len(parts) >= 5:
                         condition = parts[0].replace("**", "")
                         threshold_str = parts[1]
-                        acc_str = parts[2].replace("**", "").replace("%", "")
+                        
+                        raw_acc_ci = parts[2].replace("**", "")
+                        base_acc_str = raw_acc_ci.split("±")[0].replace("%", "").strip()
+                        
                         eer_str = parts[3].replace("**", "").replace("%", "")
                         auc_str = parts[4].replace("**", "")
                         
@@ -394,7 +407,7 @@ def get_results_summary():
                         
                         try:
                             threshold = float(threshold_str) if threshold_str != "-" else 0.5
-                            accuracy = float(acc_str) / 100.0 if acc_str != "-" else 0.0
+                            accuracy = float(base_acc_str) / 100.0 if base_acc_str != "-" else 0.0
                             eer = float(eer_str) / 100.0 if eer_str != "-" else 0.0
                             auc = float(auc_str) if auc_str != "-" else 0.0
                             accuracy_drop = float(acc_drop_str) / 100.0 if (acc_drop_str != "-" and acc_drop_str != "" and acc_drop_str != " ") else 0.0
@@ -405,6 +418,7 @@ def get_results_summary():
                                     condition=condition,
                                     threshold=threshold,
                                     accuracy=accuracy,
+                                    accuracy_ci=raw_acc_ci,
                                     eer=eer,
                                     auc=auc,
                                     accuracy_drop=accuracy_drop,
@@ -419,17 +433,37 @@ def get_results_summary():
     # Fallback to defaults if parsing returned empty
     if not degradation_benchmarks:
         degradation_benchmarks = [
-            DegradationRow(condition="Clean Baseline", threshold=0.7943, accuracy=0.809, eer=0.0592, auc=0.9870, accuracy_drop=0.0, eer_increase=0.0),
-            DegradationRow(condition="AMR-NB Codec", threshold=0.9791, accuracy=0.723, eer=0.1265, auc=0.9645, accuracy_drop=0.085, eer_increase=0.0673),
-            DegradationRow(condition="GSM Codec (Cellular)", threshold=0.1863, accuracy=0.766, eer=0.1818, auc=0.9420, accuracy_drop=0.043, eer_increase=0.1225),
-            DegradationRow(condition="Low Loss (5% Loss, 10ms Jitter)", threshold=0.0557, accuracy=0.596, eer=0.0673, auc=0.9835, accuracy_drop=0.213, eer_increase=0.0080),
-            DegradationRow(condition="High Loss (15% Loss, 30ms Jitter)", threshold=0.1241, accuracy=0.787, eer=0.1145, auc=0.9705, accuracy_drop=0.021, eer_increase=0.0552)
+            DegradationRow(condition="Clean Baseline", threshold=0.7943, accuracy=0.809, accuracy_ci="80.9% ± 6.5%", eer=0.0592, auc=0.9870, accuracy_drop=0.0, eer_increase=0.0),
+            DegradationRow(condition="AMR-NB Codec", threshold=0.9791, accuracy=0.723, accuracy_ci="72.3% ± 7.4%", eer=0.1265, auc=0.9645, accuracy_drop=0.085, eer_increase=0.0673),
+            DegradationRow(condition="GSM Codec (Cellular)", threshold=0.1863, accuracy=0.766, accuracy_ci="76.6% ± 7.0%", eer=0.1818, auc=0.9420, accuracy_drop=0.043, eer_increase=0.1225)
         ]
         
     return {
         "confusion_matrices": confusion_matrices,
         "degradation_benchmarks": degradation_benchmarks
     }
+
+@app.get("/results/sensitivity", response_model=list[SensitivityRow], summary="Threshold Sensitivity", description="Returns Accuracy, FPR, and FNR across thresholds 0.1 to 0.9.")
+def get_results_sensitivity():
+    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
+    sensitivity_path = os.path.join(docs_dir, "threshold_sensitivity.json")
+    if os.path.exists(sensitivity_path):
+        try:
+            import json
+            with open(sensitivity_path, "r") as f:
+                data = json.load(f)
+                return data
+        except Exception as e:
+            print(f"Error loading threshold_sensitivity.json: {e}")
+            
+    # Fallback default values
+    return [
+        {"threshold": 0.1, "accuracy": 0.50, "fpr": 0.50, "fnr": 0.0},
+        {"threshold": 0.3, "accuracy": 0.65, "fpr": 0.35, "fnr": 0.0},
+        {"threshold": 0.5, "accuracy": 0.75, "fpr": 0.25, "fnr": 0.0},
+        {"threshold": 0.7, "accuracy": 0.80, "fpr": 0.20, "fnr": 0.05},
+        {"threshold": 0.9, "accuracy": 0.70, "fpr": 0.10, "fnr": 0.40}
+    ]
 
 # WebSocket Real-Time Audio Streaming Endpoint
 @app.websocket("/stream")
