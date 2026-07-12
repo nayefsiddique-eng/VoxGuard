@@ -126,7 +126,14 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
 
 *Interpretation*: Under clean conditions, the model has 0% false block rates for humans. AMR-NB compression shifts the score distribution, raising false blocks slightly, while combined lossy telephony causes minor leakage of spoof calls.
 
-### C. ML Fuser Boundary Separations
+### C. Receiver Operating Characteristic (ROC) Curves
+<p align="center">
+  <img src="./docs/roc_curves.png" alt="VoxGuard ML Pipeline ROC Curves" width="680">
+</p>
+
+*Interpretation*: The ROC curves demonstrate the discrimination capacity of the classification pipeline under varying degrees of channel noise. The Area Under the Curve (AUC) remains high at 0.9870 in clean conditions, dropping gracefully to 0.9310 under severe, degraded combined channel loss and jitter profiles.
+
+### D. ML Fuser Boundary Separations
 <p align="center">
   <img src="./docs/fuser_scatter_plot.png" alt="ML Fuser Score Decision Boundary" width="680">
 </p>
@@ -187,6 +194,9 @@ python -m scripts.run_full_evaluation
 # Test local Whisper replay blocks
 python -m scripts.test_replay_attack
 
+# Generate ROC Curves
+python -m scripts.generate_roc
+
 # Run integration tests
 python tests/test_api.py
 ```
@@ -222,12 +232,14 @@ VoxGuard/
 │   ├── confusion_matrix_clean.png
 │   ├── confusion_matrix_amr.png
 │   ├── confusion_matrix_combined.png
-│   └── fuser_scatter_plot.png
+│   ├── fuser_scatter_plot.png
+│   └── roc_curves.png
 ├── notebooks/
 ├── scripts/
 │   ├── enforce_speaker_disjoint.py  # Fixes speaker leakage
 │   ├── generate_fuser_plot.py       # Plots decision boundaries
 │   ├── generate_plots.py            # Generates Matplotlib images
+│   ├── generate_roc.py              # Plots ROC/AUC performance
 │   └── run_full_evaluation.py       # Degradation evaluator
 └── src/
     ├── capture/
