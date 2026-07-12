@@ -12,14 +12,6 @@ VoxGuard is an end-to-end call verification framework designed to detect AI voic
 
 ---
 
-<p align="center">
-  <img src="docs/architecture_diagram.png" alt="VoxGuard Pipeline Architecture" width="750">
-  <br>
-  <i>Figure 1: Modular verification pipeline showing continuous passive classification and context-bound active challenges.</i>
-</p>
-
----
-
 ## 📖 Table of Contents
 - [Threat Model & Overview](#-threat-model--overview)
 - [Core Security Features](#-core-security-features)
