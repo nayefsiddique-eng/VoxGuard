@@ -145,12 +145,12 @@ def main():
     y_true_clean, y_pred_clean = evaluate_predictions(eval_samples, "none", 0.0, 0, 0.7943, model)
     plot_cm(y_true_clean, y_pred_clean, "Confusion Matrix: Clean Baseline", os.path.join(docs_dir, "confusion_matrix_clean.png"))
     
-    # 2. Generate AMR-NB Confusion Matrix (threshold = 0.9791)
-    y_true_amr, y_pred_amr = evaluate_predictions(eval_samples, "amr", 0.0, 0, 0.9791, model)
+    # 2. Generate AMR-NB Confusion Matrix (threshold = 0.7943)
+    y_true_amr, y_pred_amr = evaluate_predictions(eval_samples, "amr", 0.0, 0, 0.7943, model)
     plot_cm(y_true_amr, y_pred_amr, "Confusion Matrix: AMR-NB Telephony", os.path.join(docs_dir, "confusion_matrix_amr.png"))
     
-    # 3. Generate Combined Severe Telephony CM (threshold = 0.9198)
-    y_true_comb, y_pred_comb = evaluate_predictions(eval_samples, "amr", 0.15, 30, 0.9198, model)
+    # 3. Generate Combined Severe Telephony CM (threshold = 0.7943)
+    y_true_comb, y_pred_comb = evaluate_predictions(eval_samples, "amr", 0.15, 30, 0.7943, model)
     plot_cm(y_true_comb, y_pred_comb, "Confusion Matrix: Combined Severe", os.path.join(docs_dir, "confusion_matrix_combined.png"))
     
     # 4. Generate System Architecture Diagram
