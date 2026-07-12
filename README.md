@@ -6,7 +6,9 @@
 
 ---
 
-![VoxGuard System Architecture Diagram](docs/architecture_diagram.png)
+<p align="center">
+  <img src="./docs/architecture_diagram.png" alt="VoxGuard System Architecture Diagram" width="100%">
+</p>
 
 ---
 
@@ -71,12 +73,15 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
 
 ### C. Visualizations
 - **Feature Importance**: Dynamic delta/delta-delta envelopes capture temporal vocoder artifacts, contributing over 90% of model weight:
-  ![Feature Importance Plot](docs/feature_importance.png)
+  <p align="center">
+    <img src="./docs/feature_importance.png" alt="Feature Importance Plot" width="80%">
+  </p>
+  
 - **Confusion Matrices**: Evaluating block rates under Clean, AMR-NB, and Combined degradation:
   <p align="center">
-    <img src="docs/confusion_matrix_clean.png" width="31%">
-    <img src="docs/confusion_matrix_amr.png" width="31%">
-    <img src="docs/confusion_matrix_combined.png" width="31%">
+    <img src="./docs/confusion_matrix_clean.png" width="31%">
+    <img src="./docs/confusion_matrix_amr.png" width="31%">
+    <img src="./docs/confusion_matrix_combined.png" width="31%">
   </p>
 
 ---
@@ -208,6 +213,13 @@ VoxGuard/
 VoxGuard represents an academic implementation of voice clone authentication. The pipeline architecture aligns with concepts presented in:
 * **GOTCHA**: *GOTCHA: Yoking Adversarial Speech Generators to Authenticate Speakers* (Mittal et al., EuroS&P 2024).
 * **PITCH**: Dynamic pitch and prosody shifting metrics in communication channel security.
+
+---
+
+## 👥 Contributors
+
+* **nayefsiddique-eng** (Lead Developer) - [GitHub Profile](https://github.com/nayefsiddique-eng)
+* **maahlikkk** (Contributor) - [GitHub Profile](https://github.com/maahlikkk)
 
 ---
 
