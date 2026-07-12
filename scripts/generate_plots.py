@@ -152,6 +152,23 @@ def main():
     # 4. Generate System Architecture Diagram
     draw_architecture_diagram(os.path.join(docs_dir, "architecture_diagram.png"))
     
+    # 5. Output Confusion Matrix counts in JSON format for the SOC web console API
+    import json
+    cm_clean = confusion_matrix(y_true_clean, y_pred_clean)
+    cm_amr = confusion_matrix(y_true_amr, y_pred_amr)
+    cm_comb = confusion_matrix(y_true_comb, y_pred_comb)
+    
+    cm_data = {
+        "clean": {"tn": int(cm_clean[0, 0]), "fp": int(cm_clean[0, 1]), "fn": int(cm_clean[1, 0]), "tp": int(cm_clean[1, 1])},
+        "amr": {"tn": int(cm_amr[0, 0]), "fp": int(cm_amr[0, 1]), "fn": int(cm_amr[1, 0]), "tp": int(cm_amr[1, 1])},
+        "combined": {"tn": int(cm_comb[0, 0]), "fp": int(cm_comb[0, 1]), "fn": int(cm_comb[1, 0]), "tp": int(cm_comb[1, 1])}
+    }
+    
+    json_path = os.path.join(docs_dir, "confusion_matrices.json")
+    with open(json_path, "w") as f:
+        json.dump(cm_data, f, indent=4)
+    print(f"Saved confusion matrices JSON to: {json_path}")
+    
     print("\nAll plots generated successfully!")
 
 if __name__ == "__main__":

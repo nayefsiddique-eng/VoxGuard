@@ -133,6 +133,46 @@ def main():
             print("Response:", res.json())
             assert res.status_code == 200
             
+        # --- Endpoint 5: Get Events log ---
+        print("\n5. Testing GET /events...")
+        res = requests.get(f"{base_url}/events")
+        events_data = res.json()
+        print("Response (First 3 entries):", events_data[:3])
+        assert res.status_code == 200
+        assert isinstance(events_data, list)
+        if len(events_data) > 0:
+            assert "timestamp" in events_data[0]
+            assert "severity" in events_data[0]
+            assert "component" in events_data[0]
+            
+        # --- Endpoint 6: Get Call History ---
+        print("\n6. Testing GET /history...")
+        res = requests.get(f"{base_url}/history")
+        history_data = res.json()
+        print("Response:", history_data)
+        assert res.status_code == 200
+        assert isinstance(history_data, list)
+        
+        # --- Endpoint 7: Get System Status ---
+        print("\n7. Testing GET /system-status...")
+        res = requests.get(f"{base_url}/system-status")
+        status_data = res.json()
+        print("Response:", status_data)
+        assert res.status_code == 200
+        assert "detector_loaded" in status_data
+        assert "whisper_loaded" in status_data
+        
+        # --- Endpoint 8: Get Results Summary ---
+        print("\n8. Testing GET /results/summary...")
+        res = requests.get(f"{base_url}/results/summary")
+        summary_data = res.json()
+        print("Response Benchmarks (First entry):", summary_data["degradation_benchmarks"][0])
+        print("Response Matrices:", summary_data["confusion_matrices"])
+        assert res.status_code == 200
+        assert "confusion_matrices" in summary_data
+        assert "degradation_benchmarks" in summary_data
+        assert "clean" in summary_data["confusion_matrices"]
+        
         print("\nAll endpoints and authentic real-vs-fake classifications verified successfully!")
         
     except Exception as e:

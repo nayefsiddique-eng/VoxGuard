@@ -354,21 +354,81 @@ def get_system_status():
 
 @app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data", description="Returns structured evaluation matrices and channel degradation benchmarks.")
 def get_results_summary():
-    CONFUSION_MATRICES = {
+    # 1. Load confusion matrices dynamically
+    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
+    cm_path = os.path.join(docs_dir, "confusion_matrices.json")
+    
+    # Defaults in case of parsing errors or first run
+    confusion_matrices = {
         "clean": {"tp": 16, "tn": 98, "fp": 27, "fn": 0},
         "amr": {"tp": 15, "tn": 87, "fp": 38, "fn": 1},
         "combined": {"tp": 13, "tn": 103, "fp": 22, "fn": 3}
     }
-    DEGRADATION_BENCHMARKS = [
-        {"condition": "Clean Baseline", "threshold": 0.7943, "accuracy": 0.809, "eer": 0.0592, "auc": 0.9870, "accuracy_drop": 0.0, "eer_increase": 0.0},
-        {"condition": "AMR-NB Codec", "threshold": 0.9791, "accuracy": 0.723, "eer": 0.1265, "auc": 0.9645, "accuracy_drop": 0.085, "eer_increase": 0.0673},
-        {"condition": "GSM Codec (Cellular)", "threshold": 0.1863, "accuracy": 0.766, "eer": 0.1818, "auc": 0.9420, "accuracy_drop": 0.043, "eer_increase": 0.1225},
-        {"condition": "Low Loss (5% Loss, 10ms Jitter)", "threshold": 0.0557, "accuracy": 0.596, "eer": 0.0673, "auc": 0.9835, "accuracy_drop": 0.213, "eer_increase": 0.0080},
-        {"condition": "High Loss (15% Loss, 30ms Jitter)", "threshold": 0.1241, "accuracy": 0.787, "eer": 0.1145, "auc": 0.9705, "accuracy_drop": 0.021, "eer_increase": 0.0552}
-    ]
+    if os.path.exists(cm_path):
+        try:
+            import json
+            with open(cm_path, "r") as f:
+                confusion_matrices = json.load(f)
+        except Exception as e:
+            print(f"Error loading confusion matrices JSON: {e}")
+            
+    # 2. Parse results_degraded.md dynamically
+    benchmarks_path = os.path.join(docs_dir, "results_degraded.md")
+    degradation_benchmarks = []
+    if os.path.exists(benchmarks_path):
+        try:
+            with open(benchmarks_path, "r") as f:
+                lines = f.readlines()
+            for line in lines:
+                if line.startswith("|") and "Channel Condition" not in line and "---| " not in line and "---|--" not in line and "---" not in line:
+                    parts = [p.strip() for p in line.split("|") if p.strip() != ""]
+                    if len(parts) >= 5:
+                        condition = parts[0].replace("**", "")
+                        threshold_str = parts[1]
+                        acc_str = parts[2].replace("**", "").replace("%", "")
+                        eer_str = parts[3].replace("**", "").replace("%", "")
+                        auc_str = parts[4].replace("**", "")
+                        
+                        acc_drop_str = parts[5].replace("%", "") if len(parts) > 5 else "-"
+                        eer_inc_str = parts[6].replace("+", "").replace("%", "") if len(parts) > 6 else "-"
+                        
+                        try:
+                            threshold = float(threshold_str) if threshold_str != "-" else 0.5
+                            accuracy = float(acc_str) / 100.0 if acc_str != "-" else 0.0
+                            eer = float(eer_str) / 100.0 if eer_str != "-" else 0.0
+                            auc = float(auc_str) if auc_str != "-" else 0.0
+                            accuracy_drop = float(acc_drop_str) / 100.0 if (acc_drop_str != "-" and acc_drop_str != "" and acc_drop_str != " ") else 0.0
+                            eer_increase = float(eer_inc_str) / 100.0 if (eer_inc_str != "-" and eer_inc_str != "" and eer_inc_str != " ") else 0.0
+                            
+                            degradation_benchmarks.append(
+                                DegradationRow(
+                                    condition=condition,
+                                    threshold=threshold,
+                                    accuracy=accuracy,
+                                    eer=eer,
+                                    auc=auc,
+                                    accuracy_drop=accuracy_drop,
+                                    eer_increase=eer_increase
+                                )
+                            )
+                        except Exception as parse_err:
+                            pass
+        except Exception as e:
+            print(f"Error parsing results_degraded.md: {e}")
+            
+    # Fallback to defaults if parsing returned empty
+    if not degradation_benchmarks:
+        degradation_benchmarks = [
+            DegradationRow(condition="Clean Baseline", threshold=0.7943, accuracy=0.809, eer=0.0592, auc=0.9870, accuracy_drop=0.0, eer_increase=0.0),
+            DegradationRow(condition="AMR-NB Codec", threshold=0.9791, accuracy=0.723, eer=0.1265, auc=0.9645, accuracy_drop=0.085, eer_increase=0.0673),
+            DegradationRow(condition="GSM Codec (Cellular)", threshold=0.1863, accuracy=0.766, eer=0.1818, auc=0.9420, accuracy_drop=0.043, eer_increase=0.1225),
+            DegradationRow(condition="Low Loss (5% Loss, 10ms Jitter)", threshold=0.0557, accuracy=0.596, eer=0.0673, auc=0.9835, accuracy_drop=0.213, eer_increase=0.0080),
+            DegradationRow(condition="High Loss (15% Loss, 30ms Jitter)", threshold=0.1241, accuracy=0.787, eer=0.1145, auc=0.9705, accuracy_drop=0.021, eer_increase=0.0552)
+        ]
+        
     return {
-        "confusion_matrices": CONFUSION_MATRICES,
-        "degradation_benchmarks": DEGRADATION_BENCHMARKS
+        "confusion_matrices": confusion_matrices,
+        "degradation_benchmarks": degradation_benchmarks
     }
 
 # WebSocket Real-Time Audio Streaming Endpoint
