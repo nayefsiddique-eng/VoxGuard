@@ -13,21 +13,22 @@
 ---
 
 ## 📖 Table of Contents
-1. [Overview](#-overview)
-2. [Key Features](#-key-features)
-3. [Live Demo Experience](#-live-demo-experience)
-4. [System Architecture](#-system-architecture)
-5. [Evaluation & Research Results](#-evaluation--research-results)
-6. [Getting Started](#-getting-started)
-7. [Project Structure](#-project-structure)
-8. [Tech Stack](#-tech-stack)
-9. [Research Context & Related Work](#-research-context--related-work)
-10. [Limitations & Future Work](#-limitations--future-work)
-11. [License](#-license)
+1. [Contextual Verification & Threat Model](#-1-contextual-verification--threat-model)
+2. [Core Architectural Countermeasures](#%EF%B8%8F-2-core-architectural-countermeasures)
+3. [Interactive Web Console & Interface Schematics](#-3-interactive-web-console--interface-schematics)
+4. [Verification Pipeline & Subsystem Mechanics](#%EF%B8%8F-4-verification-pipeline--subsystem-mechanics)
+5. [Empirical Performance Benchmarks](#-5-empirical-performance-benchmarks)
+6. [Feature Space & Decision Boundary Analysis](#-6-feature-space--decision-boundary-analysis)
+7. [Installation & Local Deployment Guide](#%EF%B8%8F-7-installation-&-local-deployment-guide)
+8. [Repository Filepath Schematics](#-8-repository-filepath-schematics)
+9. [Deep Learning & Signal Processing Stack](#%F0%9F%8E%9B%EF%B8%8F-9-deep-learning--signal-processing-stack)
+10. [Research Context & Related Work](#-10-research-context--related-work)
+11. [Limitations & Future Roadmap](#-11-limitations--future-roadmap)
+12. [License](#-12-mit-license)
 
 ---
 
-## 🎯 Overview
+## 📡 1. Contextual Verification & Threat Model
 
 VoxGuard is an end-to-end communication security framework designed to mitigate the threat of live-call voice deepfakes. As generative AI models make high-fidelity voice cloning accessible, impersonation fraud (such as CEO fraud and distress scams) is transitioning from emails to real-time telephony channels. VoxGuard provides a defense-in-depth architecture that intercepts suspicious calls and verifies speaker authenticity.
 
@@ -37,7 +38,7 @@ Unlike traditional, laboratory-based detectors that assume clean, studio-recorde
 
 ---
 
-## 🚀 Key Features
+## 🛡️ 2. Core Architectural Countermeasures
 
 * **Passive Real-Time Authenticity Scoring**: Analyzes 1.5-second rolling windows of call audio to detect micro-discontinuities in the voice signature.
 * **Dynamic Challenge-Response Engine**: Issues spontaneous verification prompts (digit sequences, whispered phrases, math latency probes) upon scoring anomalies.
@@ -49,7 +50,7 @@ Unlike traditional, laboratory-based detectors that assume clean, studio-recorde
 
 ---
 
-## 💻 Live Demo Experience
+## 💻 3. Interactive Web Console & Interface Schematics
 
 The frontend dashboard provides a live visualization of the verification pipeline:
 * **Interactive Presets**: Allows users to select clean or spoofed audio frames and apply simulated GSM, AMR-NB, or packet loss degradation on the fly.
@@ -63,23 +64,23 @@ For a complete step-by-step walkthrough, refer to the [Live Viva Demonstration S
 
 ---
 
-## 🧠 System Architecture
+## ⚙️ 4. Verification Pipeline & Subsystem Mechanics
 
-The pipeline consists of six stages coordinates across modular python files:
+The verification pipeline operates across modular subsystems in the source repository:
 
-1. **Audio Capture**: The audio stream is sliced into 1.5-second windows (or received as raw WebSocket frames). This is implemented in [streaming_capture.py](./src/capture/streaming_capture.py).
-2. **Passive Detector**: Extracts 120-dimensional Mel-Frequency Cepstral Coefficients (MFCCs: static, delta, and delta-delta features) and scores authenticity. This is implemented in [extract_features.py](./src/features/extract_features.py) and evaluated in [baseline_detector.py](./src/models/baseline_detector.py).
-3. **Challenge Engine**: Selects random verification prompts and handles local synthesis. This is implemented in [phrase_challenge.py](./src/challenge_engine/phrase_challenge.py) and [generate_cloned_responses.py](./src/challenge_engine/generate_cloned_responses.py).
-4. **Whisper verification**: Transcribes the caller's response offline using local CPU weights, checking semantic context alignment. This is implemented in [response_scorer.py](./src/challenge_engine/response_scorer.py).
-5. **ML Score Fusion**: Combines passive caller scores and challenge alignment metrics using a Logistic Regression model. This is implemented in [fusion.py](./src/pipeline/fusion.py).
-6. **API endpoints**: Exposes FastAPI endpoints coordinating streaming frames and returns verification logs. This is implemented in [api.py](./src/pipeline/api.py).
+* **Audio Capture & Chunking**: The audio stream is sliced into 1.5-second windows (or received as raw WebSocket frames). This is implemented in [streaming_capture.py](./src/capture/streaming_capture.py).
+* **Spectral Feature Extraction**: Extracts 120-dimensional Mel-Frequency Cepstral Coefficients (MFCCs: static, delta, and delta-delta features) and scores authenticity. This is implemented in [extract_features.py](./src/features/extract_features.py) and evaluated in [baseline_detector.py](./src/models/baseline_detector.py).
+* **Prompt Challenge Dispatch**: Selects random verification prompts and handles local synthesis. This is implemented in [phrase_challenge.py](./src/challenge_engine/phrase_challenge.py) and [generate_cloned_responses.py](./src/challenge_engine/generate_cloned_responses.py).
+* **Context Verification (ASR)**: Transcribes the caller's response offline using local CPU weights, checking semantic context alignment. This is implemented in [response_scorer.py](./src/challenge_engine/response_scorer.py).
+* **ML Score Fusion**: Combines passive caller scores and challenge alignment metrics using a Logistic Regression model. This is implemented in [fusion.py](./src/pipeline/fusion.py).
+* **API Endpoints Coordination**: Exposes FastAPI endpoints coordinating streaming frames and returns verification logs. This is implemented in [api.py](./src/pipeline/api.py).
 
 ---
 
-## 📊 Evaluation & Research Results
+## 📊 5. Empirical Performance Benchmarks
 
 ### A. Clean Voice Spoof Detection
-Classifiers were trained on 120-dimensional MFCC dynamic features. Evaluated on the strictly speaker-disjoint Eval split:
+Baseline classifiers were evaluated on 800 speech files from the ASVspoof 2019 Logical Access (LA) database under strictly speaker-disjoint splits:
 
 | Model | Dev Accuracy | Dev AUC | Dev EER | Eval Accuracy | Eval AUC | Eval EER |
 |---|---|---|---|---|---|---|
@@ -100,22 +101,32 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
 | High Loss (15% Loss / 30ms Jitter) | 0.1241 | 78.7% | 11.45% | 0.9705 | 2.1% | +5.52% |
 | **Combined Severe Telephony** | 0.9038 | **80.9%** | **12.25%** | **0.9310** | **0.0%** | **+6.33%** |
 
-### C. Visualizations
-- **Feature Importance**: Dynamic delta/delta-delta envelopes capture temporal vocoder artifacts, contributing over 90% of model weight:
-  <p align="center">
-    <img src="./docs/feature_importance.png" alt="Feature Importance Plot" width="80%">
-  </p>
-  
-  *Interpretation*: Static MFCCs (which capture speaker timbre) are easily spoofed by voice cloning models. VoxGuard relies instead on dynamic Delta/Delta-Delta coefficients. This indicates the model detects temporal vocoding artifacts (abrupt formant velocity shifts) to separate real human audio from clones.
-  
-- **Confusion Matrices**: Evaluating block rates under Clean, AMR-NB, and Combined degradation:
-  <p align="center">
-    <img src="./docs/confusion_matrix_clean.png" width="31%">
-    <img src="./docs/confusion_matrix_amr.png" width="31%">
-    <img src="./docs/confusion_matrix_combined.png" width="31%">
-  </p>
-  
-  *Interpretation*: Under clean conditions, the model has 0% false block rates for humans. AMR-NB compression shifts the score distribution, raising false blocks slightly, while combined lossy telephony causes minor leakage of spoof calls.
+---
+
+## 📈 6. Feature Space & Decision Boundary Analysis
+
+### A. Spectral Coefficent Weight Distributions
+<p align="center">
+  <img src="./docs/feature_importance.png" alt="Feature Importance Plot" width="85%">
+</p>
+
+*Interpretation*: Static MFCCs (which capture speaker timbre) are easily spoofed by voice cloning models. VoxGuard relies instead on dynamic Delta/Delta-Delta coefficients. This indicates the model detects temporal vocoding artifacts (abrupt formant velocity shifts) to separate real human audio from clones.
+
+### B. Confusion Matrix Projections
+<p align="center">
+  <img src="./docs/confusion_matrix_clean.png" width="32%">
+  <img src="./docs/confusion_matrix_amr.png" width="32%">
+  <img src="./docs/confusion_matrix_combined.png" width="32%">
+</p>
+
+*Interpretation*: Under clean conditions, the model has 0% false block rates for humans. AMR-NB compression shifts the score distribution, raising false blocks slightly, while combined lossy telephony causes minor leakage of spoof calls.
+
+### C. ML Fuser Boundary Separations
+<p align="center">
+  <img src="./docs/fuser_scatter_plot.png" alt="ML Fuser Score Decision Boundary" width="85%">
+</p>
+
+*Interpretation*: The multi-dimensional scatter plot projects the decision boundary learned by our Logistic Regression score fuser. Authentic callers congregate in the upper-right quadrant (high passive score, high challenge adherence). Spoof attempts attempting replay bypasses fall along the bottom axis (low challenge alignment), showing clear linear classification boundaries.
 
 ---
 
@@ -128,14 +139,14 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
 
 ---
 
-## 🛠️ Getting Started
+## 🛠️ 7. Installation & Local Deployment Guide
 
-### 1. Prerequisites
+### A. Prerequisites
 - Python 3.10+
 - FFmpeg installed and added to path (or auto-detected under Windows Gyan local packages).
 - ~1.5 GB of free disk space (for dataset files and the local Whisper model weight downloads).
 
-### 2. Installation
+### B. Setup Execution
 Clone the repository and install requirements inside a virtual environment:
 ```powershell
 # Clone repo
@@ -150,14 +161,14 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 3. Dataset Download
+### C. Dataset Download
 Download the ASVspoof 2019 logical access subset by executing the utility script:
 ```powershell
 python -m src.utils.download_dataset_subset
 ```
 *(Refer to [docs/DOWNLOAD_DATA.md](docs/DOWNLOAD_DATA.md) for data split specs).*
 
-### 4. Run Pipeline Benchmarks & Tests
+### D. Pipeline Verification Suite
 ```powershell
 # Enforce speaker-disjoint partitions
 python scripts/enforce_speaker_disjoint.py
@@ -175,7 +186,7 @@ python -m scripts.test_replay_attack
 python tests/test_api.py
 ```
 
-### 5. Run the Web Dashboard
+### E. Run the Web Dashboard
 ```powershell
 python -m uvicorn src.pipeline.api:app --reload
 ```
@@ -183,7 +194,7 @@ Open `http://127.0.0.1:8000/` in your browser.
 
 ---
 
-## 📂 Project Structure
+## 📂 8. Repository Filepath Schematics
 
 ```
 VoxGuard/
@@ -205,7 +216,8 @@ VoxGuard/
 │   ├── feature_importance.png
 │   ├── confusion_matrix_clean.png
 │   ├── confusion_matrix_amr.png
-│   └── confusion_matrix_combined.png
+│   ├── confusion_matrix_combined.png
+│   └── fuser_scatter_plot.png
 ├── notebooks/
 ├── scripts/
 │   ├── enforce_speaker_disjoint.py  # Fixes speaker leakage
@@ -236,7 +248,7 @@ VoxGuard/
 
 ---
 
-## 🛠️ Tech Stack
+## 🎛️ 9. Deep Learning & Signal Processing Stack
 
 | Component | Technology | Purpose |
 |---|---|---|
@@ -250,16 +262,16 @@ VoxGuard/
 
 ---
 
-## 🎓 Research Context & Related Work
+## 🎓 10. Research Context & Related Work
 
-VoxGuard is an academic implementation of voice clone authentication. The pipeline architecture aligns with concepts presented in:
+VoxGuard represents an academic implementation of voice clone authentication. The pipeline architecture aligns with concepts presented in:
 * **GOTCHA**: *GOTCHA: Yoking Adversarial Speech Generators to Authenticate Speakers* (Mittal et al., EuroS&P 2024). Adapts adversarial speech generator yoking to live audio streams.
 * **PITCH**: Dynamic pitch and prosody shifting metrics in communication channel security.
 * **ASVspoof**: Logical access (LA) spoof benchmarks measuring vocoder footprints.
 
 ---
 
-## 🔮 Limitations & Future Work
+## 🔮 11. Limitations & Future Roadmap
 
 * **Challenge-Response Validation**: Current separation gap statistics use synthetic stand-ins; real human voice testing is required to validate final EER metrics.
 * **Local Voice Cloning Integration**: Integrate local voice synthesis engines (e.g., Coqui TTS) to generate phrase-matched cloned responses for custom speech prompts.
@@ -268,6 +280,6 @@ VoxGuard is an academic implementation of voice clone authentication. The pipeli
 
 ---
 
-## 📄 License
+## 📄 12. MIT License
 
 VoxGuard is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
