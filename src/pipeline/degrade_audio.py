@@ -107,6 +107,10 @@ def degrade_python_fallback(input_path, output_path, codec="amr"):
     - AMR-NB approximation: bandpass filter (300Hz-3400Hz) + downsample to 8kHz + decimation + 8-bit quantization.
     - Opus approximation: downsample to 12kHz + sub-band compression + slight high frequency attenuation.
     """
+    import hashlib
+    h = int(hashlib.md5(os.path.basename(input_path).encode("utf-8")).hexdigest(), 16) % (2**32)
+    np.random.seed(h)
+
     if codec == "none":
         shutil.copy(input_path, output_path)
         return
@@ -144,6 +148,10 @@ def apply_network_degradations(audio_path, output_path, packet_loss_rate=0.05, j
     - Packet loss: zero out audio blocks of 20ms at the specified rate.
     - Jitter: introduces micro-silences or overlaps to simulate jitter buffer delay spikes.
     """
+    import hashlib
+    h = int(hashlib.md5(os.path.basename(audio_path).encode("utf-8")).hexdigest(), 16) % (2**32)
+    np.random.seed(h)
+
     data, sr = sf.read(audio_path)
     length = len(data)
     

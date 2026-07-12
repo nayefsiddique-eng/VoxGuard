@@ -9,6 +9,8 @@ from src.pipeline.degrade_audio import process_file
 
 def evaluate_predictions(samples, codec, packet_loss, jitter, threshold, model):
     """Generates ground truth and predictions for a specific degradation condition."""
+    # Seed numpy random number generator for reproducible packet drops
+    np.random.seed(42)
     X, y_true = [], []
     temp_dir = "data/degraded_temp"
     os.makedirs(temp_dir, exist_ok=True)
@@ -117,6 +119,8 @@ def draw_architecture_diagram(save_path):
     print(f"Saved architecture diagram: {save_path}")
 
 def main():
+    # Seed numpy random number generator for reproducible packet drops
+    np.random.seed(42)
     print("==================================================")
     print("GENERATING VERIFICATION IMAGES & PLOTS")
     print("==================================================")
@@ -145,8 +149,8 @@ def main():
     y_true_amr, y_pred_amr = evaluate_predictions(eval_samples, "amr", 0.0, 0, 0.9791, model)
     plot_cm(y_true_amr, y_pred_amr, "Confusion Matrix: AMR-NB Telephony", os.path.join(docs_dir, "confusion_matrix_amr.png"))
     
-    # 3. Generate Combined Severe Telephony CM (threshold = 0.9038)
-    y_true_comb, y_pred_comb = evaluate_predictions(eval_samples, "amr", 0.15, 30, 0.9038, model)
+    # 3. Generate Combined Severe Telephony CM (threshold = 0.9198)
+    y_true_comb, y_pred_comb = evaluate_predictions(eval_samples, "amr", 0.15, 30, 0.9198, model)
     plot_cm(y_true_comb, y_pred_comb, "Confusion Matrix: Combined Severe", os.path.join(docs_dir, "confusion_matrix_combined.png"))
     
     # 4. Generate System Architecture Diagram

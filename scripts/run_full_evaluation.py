@@ -49,6 +49,8 @@ def run_eval_on_dataset(samples, feature_type="mfcc", model=None, threshold=0.5)
     return acc, auc, eer, probs
 
 def main():
+    # Seed numpy random number generator for reproducible packet drops
+    np.random.seed(42)
     print("==================================================")
     print("RUNNING CALIBRATED DEGRADATION EVALUATION PIPELINE")
     print("==================================================")
