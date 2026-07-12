@@ -54,6 +54,45 @@ class ChallengeVerifyResponse(BaseModel):
     fusion_metrics: FusionMetrics
     final_status: str
 
+class SystemStatusResponse(BaseModel):
+    detector_loaded: bool = Field(..., description="Is the passive Logistic Regression model loaded.")
+    whisper_loaded: bool = Field(..., description="Is the local Whisper model loaded in memory.")
+    uptime_seconds: float = Field(..., description="API server uptime in seconds.")
+    last_checked_timestamp: str = Field(..., description="RFC-formatted timestamp of the last check.")
+
+class EventLogEntry(BaseModel):
+    timestamp: str = Field(..., description="Logical time (HH:MM:SS) of the event.")
+    severity: str = Field(..., description="Event severity: INFO, SUCCESS, WARNING, ERROR.")
+    component: str = Field(..., description="Source subsystem: PASSIVE_MONITOR, CHALLENGE_ENGINE, FUSER, SYSTEM.")
+    message: str = Field(..., description="Readable event log description.")
+
+class CallHistoryEntry(BaseModel):
+    timestamp: str = Field(..., description="Date and time of attempt.")
+    filename: str = Field(..., description="Name of audio sample evaluated.")
+    passive_score: float = Field(..., description="Authenticity score from passive scan.")
+    challenge_score: float | None = Field(None, description="Response adherence score, if challenged.")
+    final_score: float | None = Field(None, description="Fused score output.")
+    verdict: str = Field(..., description="Call status result.")
+
+class ConfusionMatrixData(BaseModel):
+    tp: int
+    tn: int
+    fp: int
+    fn: int
+
+class DegradationRow(BaseModel):
+    condition: str
+    threshold: float
+    accuracy: float
+    eer: float
+    auc: float
+    accuracy_drop: float
+    eer_increase: float
+
+class ResultsSummaryResponse(BaseModel):
+    confusion_matrices: dict[str, ConfusionMatrixData]
+    degradation_benchmarks: list[DegradationRow]
+
 # Middleware for response latency logging
 @app.middleware("http")
 async def log_latency_middleware(request: Request, call_next):
@@ -65,8 +104,23 @@ async def log_latency_middleware(request: Request, call_next):
     print(f"[Latency Diagnostic] Path: {request.url.path} | Method: {request.method} | Duration: {duration:.4f}s")
     return response
 
-# Global variables to store the loaded model
+# Global variables to store the loaded model and session logs
 CLF = None
+START_TIME = time.time()
+SESSION_EVENTS = []
+SESSION_HISTORY = []
+
+def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
+    timestamp = time.strftime("%H:%M:%S", time.localtime())
+    SESSION_EVENTS.append(
+        EventLogEntry(
+            timestamp=timestamp,
+            severity=severity,
+            component=component,
+            message=message
+        )
+    )
+
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/detector.pkl"))
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
 STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../static"))
@@ -86,21 +140,28 @@ def validate_audio_file(file: UploadFile):
 @app.on_event("startup")
 def startup_event():
     global CLF
+    add_event("VoxGuard call verification engine starting up...", "INFO", "SYSTEM")
     # 1. Load baseline passive detector
     if os.path.exists(MODEL_PATH):
         try:
             CLF = joblib.load(MODEL_PATH)
+            add_event(f"Successfully loaded Logistic Regression passive detector from: {os.path.basename(MODEL_PATH)}", "SUCCESS", "SYSTEM")
             print(f"Successfully loaded detector model from: {MODEL_PATH}")
         except Exception as e:
+            add_event(f"Failed to load detector model: {e}", "ERROR", "SYSTEM")
             print(f"Error loading model from {MODEL_PATH}: {e}")
     else:
+        add_event(f"Warning: Passive detector not found at {MODEL_PATH}.", "WARNING", "SYSTEM")
         print(f"Warning: Detector model not found at {MODEL_PATH}.")
         
     # 2. Pre-load local Whisper tiny model onto CPU
     try:
+        add_event("Loading offline Whisper 'tiny' model onto CPU...", "INFO", "SYSTEM")
         get_whisper_model()
+        add_event("Successfully pre-loaded Whisper model. Ready for audio challenges.", "SUCCESS", "SYSTEM")
         print("Successfully pre-loaded Whisper model on startup.")
     except Exception as e:
+        add_event(f"Error preloading Whisper model: {e}", "ERROR", "SYSTEM")
         print(f"Error preloading Whisper model: {e}")
 
 def get_classifier():
@@ -123,12 +184,15 @@ async def verify_passive(
     validate_audio_file(file)
     clf = get_classifier()
     
+    add_event(f"Received passive check request for file: {file.filename} (channel condition: {degradation})", "INFO", "PASSIVE_MONITOR")
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         shutil.copyfileobj(file.file, temp_file)
         temp_path = temp_file.name
         
     try:
         if degradation != "none":
+            add_event(f"Applying codec degradation simulation: {degradation}", "INFO", "PASSIVE_MONITOR")
             temp_dir = tempfile.gettempdir()
             
             if degradation == "amr":
@@ -152,23 +216,42 @@ async def verify_passive(
                 os.remove(temp_path)
             temp_path = degraded_file
             
+        add_event("Extracting acoustic Cepstral features (120-dim MFCCs)...", "INFO", "PASSIVE_MONITOR")
         features = extract_features(temp_path, feature_type="mfcc", use_cache=False)
         features = features.reshape(1, -1)
         
+        add_event("Running classification through Logistic Regression model...", "INFO", "PASSIVE_MONITOR")
         probs = clf.predict_proba(features)[0]
         passive_score = float(probs[1])
         
         trigger_challenge = passive_score < 0.7943  # Using the calibrated clean baseline threshold
+        status = "SUSPICIOUS" if trigger_challenge else "CLEAN"
         
+        add_event(f"Passive evaluation complete. Score: {passive_score:.4f} | Verdict: {status}", "WARNING" if trigger_challenge else "SUCCESS", "PASSIVE_MONITOR")
+        
+        # If call is clean, record it in history immediately as it terminates there
+        if not trigger_challenge:
+            SESSION_HISTORY.append(
+                CallHistoryEntry(
+                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    filename=file.filename,
+                    passive_score=round(passive_score, 4),
+                    challenge_score=None,
+                    final_score=round(passive_score, 4),
+                    verdict="CLEAN"
+                )
+            )
+            
         return {
             "filename": file.filename,
             "degradation_applied": degradation,
             "passive_authenticity_score": round(passive_score, 4),
-            "status": "SUSPICIOUS" if trigger_challenge else "CLEAN",
+            "status": status,
             "trigger_challenge": trigger_challenge,
             "message": "Call voice is suspicious. Please issue a verification challenge!" if trigger_challenge else "Voice appears authentic."
         }
     except Exception as e:
+        add_event(f"Passive monitor prediction failure: {str(e)}", "ERROR", "PASSIVE_MONITOR")
         raise HTTPException(status_code=500, detail=f"Feature extraction or prediction error: {str(e)}")
     finally:
         if os.path.exists(temp_path):
@@ -182,6 +265,7 @@ async def verify_passive(
 def get_challenge():
     """Generates a random challenge phrase for dynamic verification."""
     phrase = generate_challenge_phrase()
+    add_event(f"Generated dynamic challenge prompt: '{phrase}'", "INFO", "CHALLENGE_ENGINE")
     return {
         "challenge_phrase": phrase,
         "instructions": "Prompt the caller to speak/respond to this phrase exactly."
@@ -198,30 +282,94 @@ async def verify_challenge(
     Fuses the response fidelity score with the initial passive score using the trained ML fuser.
     """
     validate_audio_file(file)
+    add_event(f"Received user challenge response audio: {file.filename}", "INFO", "CHALLENGE_ENGINE")
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         shutil.copyfileobj(file.file, temp_file)
         temp_path = temp_file.name
         
     try:
+        add_event("Evaluating acoustic features of challenge response...", "INFO", "CHALLENGE_ENGINE")
         res = score_response(temp_path, phrase, model_path=MODEL_PATH)
         
+        add_event(f"Offline Whisper transcription complete: '{res['transcript']}'", "INFO", "CHALLENGE_ENGINE")
+        add_event(f"Voice footprint score: {res['voice_authenticity_score']:.4f} | Content alignment score: {res['content_adherence_score']:.4f}", "INFO", "CHALLENGE_ENGINE")
+        
+        if res['replay_attack_detected']:
+            add_event("[ALERT] Replay attack detected! Content does not align with the issued challenge.", "ERROR", "CHALLENGE_ENGINE")
+            
+        add_event("Fusing passive classifier and challenge response scores...", "INFO", "FUSER")
         fusion_result = fuse_scores(
             passive_score=passive_score,
             challenge_score=res["fused_challenge_score"],
             challenge_weight=0.5
         )
         
+        fscore = fusion_result["final_authenticity_score"]
+        fstatus = fusion_result["status"]
+        
+        add_event(f"Fusion complete. Combined Score: {fscore:.4f} | Final Verdict: {fstatus}", "SUCCESS" if fscore >= 0.5 else "ERROR", "FUSER")
+        
+        SESSION_HISTORY.append(
+            CallHistoryEntry(
+                timestamp=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                filename=file.filename,
+                passive_score=round(passive_score, 4),
+                challenge_score=round(res["fused_challenge_score"], 4),
+                final_score=round(fscore, 4),
+                verdict=fstatus
+            )
+        )
+        
         return {
             "challenge_phrase": phrase,
             "response_metrics": res,
             "fusion_metrics": fusion_result,
-            "final_status": fusion_result["status"]
+            "final_status": fstatus
         }
     except Exception as e:
+        add_event(f"Challenge verification failure: {str(e)}", "ERROR", "CHALLENGE_ENGINE")
         raise HTTPException(status_code=500, detail=f"Verification failure: {str(e)}")
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+@app.get("/events", response_model=list[EventLogEntry], summary="Session Events Log", description="Exposes server-side logs for events tracking.")
+def get_events():
+    return SESSION_EVENTS
+
+@app.get("/history", response_model=list[CallHistoryEntry], summary="Call History Log", description="Exposes all past verification attempts in this session.")
+def get_history():
+    return SESSION_HISTORY
+
+@app.get("/system-status", response_model=SystemStatusResponse, summary="System Status Indicator", description="Returns models loading states, uptime, and last-check timestamp.")
+def get_system_status():
+    from src.challenge_engine.response_scorer import WHISPER_MODEL
+    return {
+        "detector_loaded": CLF is not None,
+        "whisper_loaded": WHISPER_MODEL is not None,
+        "uptime_seconds": round(time.time() - START_TIME, 2),
+        "last_checked_timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    }
+
+@app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data", description="Returns structured evaluation matrices and channel degradation benchmarks.")
+def get_results_summary():
+    CONFUSION_MATRICES = {
+        "clean": {"tp": 16, "tn": 98, "fp": 27, "fn": 0},
+        "amr": {"tp": 15, "tn": 87, "fp": 38, "fn": 1},
+        "combined": {"tp": 13, "tn": 103, "fp": 22, "fn": 3}
+    }
+    DEGRADATION_BENCHMARKS = [
+        {"condition": "Clean Baseline", "threshold": 0.7943, "accuracy": 0.809, "eer": 0.0592, "auc": 0.9870, "accuracy_drop": 0.0, "eer_increase": 0.0},
+        {"condition": "AMR-NB Codec", "threshold": 0.9791, "accuracy": 0.723, "eer": 0.1265, "auc": 0.9645, "accuracy_drop": 0.085, "eer_increase": 0.0673},
+        {"condition": "GSM Codec (Cellular)", "threshold": 0.1863, "accuracy": 0.766, "eer": 0.1818, "auc": 0.9420, "accuracy_drop": 0.043, "eer_increase": 0.1225},
+        {"condition": "Low Loss (5% Loss, 10ms Jitter)", "threshold": 0.0557, "accuracy": 0.596, "eer": 0.0673, "auc": 0.9835, "accuracy_drop": 0.213, "eer_increase": 0.0080},
+        {"condition": "High Loss (15% Loss, 30ms Jitter)", "threshold": 0.1241, "accuracy": 0.787, "eer": 0.1145, "auc": 0.9705, "accuracy_drop": 0.021, "eer_increase": 0.0552}
+    ]
+    return {
+        "confusion_matrices": CONFUSION_MATRICES,
+        "degradation_benchmarks": DEGRADATION_BENCHMARKS
+    }
 
 # WebSocket Real-Time Audio Streaming Endpoint
 @app.websocket("/stream")
