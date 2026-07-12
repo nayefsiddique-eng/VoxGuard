@@ -8,11 +8,11 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSo
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from src.backend.features.extract_features import extract_features
-from src.backend.challenge_engine.phrase_challenge import generate_challenge_phrase
-from src.backend.challenge_engine.response_scorer import score_response, get_whisper_model
-from src.backend.pipeline.fusion import fuse_scores
-from src.backend.pipeline.degrade_audio import process_file, get_ffmpeg_path
+from src.features.extract_features import extract_features
+from src.challenge_engine.phrase_challenge import generate_challenge_phrase
+from src.challenge_engine.response_scorer import score_response, get_whisper_model
+from src.pipeline.fusion import fuse_scores
+from src.pipeline.degrade_audio import process_file, get_ffmpeg_path
 
 app = FastAPI(
     title="VoxGuard Verification Pipeline API",
@@ -68,8 +68,8 @@ async def log_latency_middleware(request: Request, call_next):
 # Global variables to store the loaded model
 CLF = None
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/detector.pkl"))
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data"))
-STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/static"))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
+STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../static"))
 
 # Helper for audio file validation
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".ogg", ".mp3"}
@@ -307,7 +307,7 @@ if os.path.exists(DATA_DIR):
     app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 # Serve the docs directory statically at /docs
-docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../docs"))
+docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
 if os.path.exists(docs_dir):
     app.mount("/docs", StaticFiles(directory=docs_dir), name="docs")
 
@@ -326,4 +326,4 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("src.backend.pipeline.api:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("src.pipeline.api:app", host="127.0.0.1", port=8000, reload=True)

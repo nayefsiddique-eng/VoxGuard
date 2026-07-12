@@ -2,7 +2,7 @@ import os
 import joblib
 import numpy as np
 import whisper
-from src.backend.features.extract_features import extract_features
+from src.features.extract_features import extract_features
 
 # Global cache for the Whisper model
 WHISPER_MODEL = None
