@@ -80,9 +80,17 @@ def draw_architecture_diagram(save_path):
         
     # Helper to draw arrows
     def draw_arrow(x1, y1, x2, y2, label=""):
-        ax.annotate(label, xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle="->", color="#4b5563", lw=2, shrinkA=5, shrinkB=5),
-                    ha="center", va="bottom", fontsize=8, color="#4b5563")
+        ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
+                    arrowprops=dict(arrowstyle="->", color="#4b5563", lw=2, shrinkA=5, shrinkB=5))
+        if label:
+            mx = (x1 + x2) / 2
+            my = (y1 + y2) / 2
+            if abs(y1 - y2) < 0.01:
+                # Horizontal arrow: place text above
+                ax.text(mx, my + 0.02, label, ha="center", va="bottom", fontsize=8, color="#4b5563", fontweight="semibold")
+            else:
+                # Vertical arrow: place text to the side
+                ax.text(mx + 0.02, my, label, ha="left", va="center", fontsize=8, color="#4b5563", fontweight="semibold")
 
     # Draw boxes
     draw_box(0.05, 0.7, 0.22, 0.15, "1. Audio Capture\n(1.5s Rolling WAV\nvia Stream/Dashboard)", "#3b82f6")
