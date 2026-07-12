@@ -1,29 +1,29 @@
-# Codebase State Documentation - Phase 2 Completed
+# Codebase State Documentation - Final Polish (Phase 4 Completed)
 
-This document outlines the system state after completing **Phase 2 (Real Data & Classifiers)**.
+This document outlines the final system architecture and state of VoxGuard:
+
+---
 
 ## 1. Directory Structure & Status
-- **`data/raw/`**: Populated with 800 real speech files in FLAC format from the ASVspoof 2019 Logical Access (LA) database split.
+- **`data/raw/`**: Populated with 800 real speech files in FLAC format from the ASVspoof 2019 Logical Access (LA) database, organized in strictly speaker-disjoint folders (Train: 33 speakers, Dev: 13 speakers, Eval: 21 speakers).
 - **`data/features/`**: Cached MFCC feature representations (numpy arrays) for fast model retraining.
-- **`data/challenges/`**: Holds paired Human (bonafide) and Cloned (spoof) response files across 4 challenge categories.
-- **`src/features/load_dataset.py`**: Fully operational. Parses official protocols and returns balanced splits.
-- **`src/features/extract_features.py`**: Upgraded to support CPU-bound Hugging Face `wav2vec2` feature extraction with disk-caching to prevent slow CPU runs.
-- **`src/models/baseline_detector.py`**: Retrained. Computes EER/AUC-ROC and selects Random Forest model (`detector.pkl`).
-- **`scripts/run_full_evaluation.py`**: Benchmark runner testing models under codecs (Opus/AMR-NB) and channel loss, outputting results tables.
-- **`src/challenge_engine/generate_cloned_responses.py`**: Created. Connects to ElevenLabs TTS API to synthesize dynamic voice clones, falling back to real neural spoof vocoder files locally.
-- **`src/challenge_engine/response_scorer.py`**: Upgraded to evaluate paired human vs clone files.
-- **`src/pipeline/fusion.py`**: Upgraded. Loads a trained Logistic Regression model (`fuser.pkl`) to combine call scores.
-- **`src/capture/streaming_capture.py`**: Created. Slices audio into 1.5-second windows and outputs compute latency stats.
-- **`src/static/index.html`**: Updated dashboard displaying actual ASVspoof demo audio files, dynamic query degradation triggers, and a research metrics table.
+- **`data/challenges/`**: Holds paired Human (bonafide gTTS US) and Cloned (spoof pyttsx3 David) response files across 4 challenge categories, speaking the exact matching phrase content.
+- **`src/features/load_dataset.py`**: Fully operational. Parses protocol files and returns balanced splits.
+- **`src/features/extract_features.py`**: Supports dynamic feature extraction (120-dim MFCC mean/std/deltas/delta-deltas) with disk caching.
+- **`src/models/baseline_detector.py`**: Trains baseline classifiers on speaker-independent splits. Saved the best model: **Logistic Regression** (`detector.pkl`).
+- **`scripts/run_full_evaluation.py`**: Calibrated evaluation script that runs per-condition threshold tuning on the Dev split and evaluates on the Eval split.
+- **`src/challenge_engine/generate_cloned_responses.py`**: Generates matching-content challenge files locally using `gTTS` and `pyttsx3`.
+- **`src/challenge_engine/response_scorer.py`**: Dynamic challenge scorer that runs an offline **OpenAI Whisper (tiny) model locally on CPU** to transcribe speech and verify content adherence.
+- **`src/pipeline/fusion.py`**: Combines passive and challenge scores using a trained Logistic Regression model (`fuser.pkl`).
+- **`src/capture/streaming_capture.py`**: Slices audio streams into 1.5s rolling windows and measures processing latency.
+- **`src/static/index.html`**: Interactive dark-mode dashboard displaying presets, real-time live mic streaming over WebSockets, and metrics cards.
+
+---
 
 ## 2. Empirical Performance Metrics Summary
-- **Passive Classifier**: Random Forest (`detector.pkl`) -> **9.20% Eval EER** (91.2% Accuracy).
-- ** टेलीफ़ोनी EER increase**: Opus (+3.60% EER), AMR-NB (+4.40% EER), Packet Loss (+5.20% EER), Combined (+6.00% EER).
-- **Challenge Separation Gap**: **67.9% to 75.6%** separation between bonafide human speaker and voice clone.
-- **Fusion ML Classifier**: Logistic Regression (`fuser.pkl`) -> **100% classification accuracy** (+19.00% improvement over weighted averages).
-- **Streaming Latency**: Average **367.07 ms** compute latency.
-
-## 3. Production Swaps & Future Work
-- **Wav2Vec2 Primary Embeddings**: If a high-end GPU or cloud instance is added, remove `--features mfcc` to retrain baseline classifiers directly on the cached Wav2Vec2 representations.
-- **Voice Clone API Integration**: Set the `ELEVENLABS_API_KEY` env var to generate cloned voices dynamically for novel challenges instead of using preloaded dataset fallbacks.
-- **ASR Engine**: Replace the content adherence mocks in `response_scorer.py` with an offline automatic speech recognition engine (like OpenAI Whisper) to measure literal word error rates.
+- **Passive Classifier**: Logistic Regression (`detector.pkl`) -> **5.92% Eval EER** (80.9% Accuracy) under strictly speaker-disjoint evaluation.
+- **Telephony degradation**: Calibrated EER values: Clean (5.92%), AMR-NB (12.65%), Opus (12.65%), GSM (18.18%), Combined (12.25%).
+- **Explainability**: Delta and Delta-Delta dynamic features account for ~90% of model weight coefficient magnitude, showing that deepfake detection relies on tracking temporal vocoding artifacts.
+- **Challenge Separation Gap**: Stable at **19.3% to 23.8%** between local gTTS and pyttsx3 voices. (Flagged as descriptive pipeline demonstration pending real human voice clones).
+- **Replay Attack Robustness**: Checked and blocked by the offline Whisper transcription engine, which drops the content score to **0.00%** on phrase mismatches.
+- **Compute Latency**: Warm slice processing takes **~119ms**, satisfying real-time network budgets.

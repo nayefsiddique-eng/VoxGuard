@@ -35,8 +35,8 @@ def main():
         print(f"Starting FastAPI server on {base_url} (waiting 15s for PyTorch initialization)...")
         proc = subprocess.Popen(cmd, env=env)
         
-        # Give the server ample time to start up (PyTorch import is slow on CPUs)
-        time.sleep(15.0)
+        # Give the server ample time to start up (PyTorch and Whisper loading is slow on CPU)
+        time.sleep(35.0)
         
         if proc.poll() is not None:
             print("Error: Server failed to start.")
