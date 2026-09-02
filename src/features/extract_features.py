@@ -92,21 +92,17 @@ def extract_features(audio_path, feature_type="wav2vec2", use_cache=True):
             return np.load(cache_file)
             
     # 2. Extract features
-    if feature_type == "wav2vec2" and HAS_TRANSFORMERS:
-        try:
-            feats = extract_wav2vec2(audio_path)
-            if use_cache:
-                np.save(cache_file, feats)
-            return feats
-        except Exception as e:
-            print(f"  [Wav2Vec2 extraction failed: {e}]. Falling back to MFCC.")
-            
-    # Fallback / Default
-    feats = extract_mfcc(audio_path)
+    if feature_type == "wav2vec2":
+        if not HAS_TRANSFORMERS:
+            raise RuntimeError("wav2vec2 extraction requested but transformers/torch are not installed.")
+        feats = extract_wav2vec2(audio_path)
+    elif feature_type == "mfcc":
+        feats = extract_mfcc(audio_path)
+    else:
+        raise ValueError(f"Unknown feature type: {feature_type}")
+        
     if use_cache:
-        # Cache the fallback features under 'mfcc' directory
-        fallback_cache = get_cache_path(audio_path, "mfcc")
-        np.save(fallback_cache, feats)
+        np.save(cache_file, feats)
     return feats
 
 if __name__ == "__main__":

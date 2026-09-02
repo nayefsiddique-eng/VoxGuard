@@ -1167,21 +1167,20 @@
 
         // Global simulation states
         let currentPassiveScore = null;
-        let activeChallengeText = null;
-        let isRecording = false;
+        let isPassiveRecording = false;
         let isChallengeRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
+        let activeChallengeText = "";
+        let currentSessionId = null;
         let ws = null;
         let isStreaming = false;
         let activePresetIndex = 0;
 
         // Preset Library Scenarios mapping
         const PRESETS = [
-            { file: 'LA_E_9691199.flac', degradation: 'none', label: 'Clean Human Call' },
-            { file: 'LA_E_1030819.flac', degradation: 'none', label: 'AI Voice Clone' },
-            { file: 'LA_E_1030819.flac', degradation: 'combined', label: 'Cellular Attack' },
-            { file: 'LA_E_9691199.flac', degradation: 'amr', label: 'Codec Degradation' }
+            { file: 'class_a_clean_0.wav', degradation: 'none', label: 'Clean Human Call' },
+            { file: 'class_b_fake_0.wav', degradation: 'none', label: 'AI Voice Clone' },
+            { file: 'class_b_fake_0.wav', degradation: 'combined', label: 'Cellular Attack' },
+            { file: 'class_a_clean_0.wav', degradation: 'amr', label: 'Codec Degradation' }
         ];
 
         function runPresetIndex(index) {
@@ -1666,6 +1665,7 @@
                 toggleUIBlock("gauge", false);
                 
                 if (res.ok) {
+                    currentSessionId = data.session_id;
                     currentPassiveScore = data.passive_authenticity_score;
                     setGaugeScore(currentPassiveScore);
                     
@@ -1755,7 +1755,7 @@
             setStepProgress(3, "");
             toggleUIBlock("gauge", true);
             
-            const audioUrl = `/data/raw/ASVspoof2019_LA_dev/flac/${filename}`;
+            const audioUrl = `/data/demo/${filename}`;
             try {
                 const response = await fetch(audioUrl);
                 if (!response.ok) throw new Error("Preset file not found in local directories.");
@@ -1794,7 +1794,9 @@
             setStepProgress(2, "active");
             
             try {
-                const res = await fetch("/challenge/request", { method: "POST" });
+                const formData = new FormData();
+                formData.append("session_id", currentSessionId);
+                const res = await fetch("/challenge/request", { method: "POST", body: formData });
                 const data = await res.json();
                 toggleUIBlock("challenge", false);
                 
@@ -1840,8 +1842,7 @@
         async function sendToChallengeVerify(blob) {
             const formData = new FormData();
             formData.append("file", blob, "challenge_response.wav");
-            formData.append("phrase", activeChallengeText);
-            formData.append("passive_score", currentPassiveScore);
+            formData.append("session_id", currentSessionId);
             
             try {
                 const res = await fetch("/challenge/verify", {

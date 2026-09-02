@@ -120,13 +120,13 @@ def main():
             path = process_file(s["filepath"], eval_degraded_dir, codec=params["codec"], packet_loss=params["packet_loss"], jitter=params["jitter"])
             degraded_eval_samples.append({"filepath": path, "label": s["label"]})
             
-        # Evaluate on Eval split using the single global clean threshold (0.7943)
-        acc, auc, eer, _ = run_eval_on_dataset(degraded_eval_samples, feature_type="mfcc", model=model, threshold=clean_threshold)
+        # Evaluate on Eval split using the condition's calibrated threshold
+        acc, auc, eer, _ = run_eval_on_dataset(degraded_eval_samples, feature_type="mfcc", model=model, threshold=calibrated_threshold)
         print(f"  [{name}] Acc: {acc*100:.1f}%, AUC: {auc:.4f}, EER: {eer*100:.2f}%")
         
         degradation_results[name] = {
             "acc": acc, "auc": auc, "eer": eer,
-            "threshold": clean_threshold,
+            "threshold": calibrated_threshold,
             "acc_gap": clean_acc - acc, "eer_gap": eer - clean_eer
         }
         
@@ -138,9 +138,9 @@ def main():
     # 5. Overwrite docs/results_degraded.md
     docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../docs"))
     results_path = os.path.join(docs_dir, "results_degraded.md")
-    
     import math
-    def compute_confidence_interval(acc, n=141):
+    eval_n = len(eval_samples)
+    def compute_confidence_interval(acc, n=eval_n):
         return 1.96 * math.sqrt((acc * (1 - acc)) / n)
         
     ci_clean = compute_confidence_interval(clean_acc)

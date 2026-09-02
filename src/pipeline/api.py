@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import joblib
 import subprocess
+import uuid
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,7 @@ class PassiveVerifyResponse(BaseModel):
     status: str = Field(..., description="Call status: CLEAN or SUSPICIOUS.")
     trigger_challenge: bool = Field(..., description="Whether the challenge mechanism is recommended.")
     message: str = Field(..., description="Detailed explanation of the verdict.")
+    session_id: str | None = Field(None, description="Session ID to link subsequent requests.")
 
 class ChallengeRequestResponse(BaseModel):
     challenge_phrase: str = Field(..., description="Synthesized phrase issued to caller.")
@@ -119,6 +121,7 @@ CLF = None
 START_TIME = time.time()
 SESSION_EVENTS = []
 SESSION_HISTORY = []
+SESSION_STORE = {}
 
 def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
     timestamp = time.strftime("%H:%M:%S", time.localtime())
@@ -144,8 +147,14 @@ def validate_audio_file(file: UploadFile):
             status_code=400,
             detail=f"Unsupported file format '{ext}'. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
         )
-    # Check if size is empty or potentially too large (e.g. 10MB limit)
-    # Note: FastAPI file.size is metadata. Let's do a basic size lookup or handle safely.
+    # Validate size by seeking to end (limit to 10MB)
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
+    if size == 0:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
 
 @app.on_event("startup")
 def startup_event():
@@ -237,6 +246,11 @@ async def verify_passive(
         trigger_challenge = passive_score < 0.7943  # Using the calibrated clean baseline threshold
         status = "SUSPICIOUS" if trigger_challenge else "CLEAN"
         
+        session_id = None
+        if trigger_challenge:
+            session_id = str(uuid.uuid4())
+            SESSION_STORE[session_id] = {'passive_score': passive_score}
+        
         add_event(f"Passive evaluation complete. Score: {passive_score:.4f} | Verdict: {status}", "WARNING" if trigger_challenge else "SUCCESS", "PASSIVE_MONITOR")
         
         # If call is clean, record it in history immediately as it terminates there
@@ -258,7 +272,8 @@ async def verify_passive(
             "passive_authenticity_score": round(passive_score, 4),
             "status": status,
             "trigger_challenge": trigger_challenge,
-            "message": "Call voice is suspicious. Please issue a verification challenge!" if trigger_challenge else "Voice appears authentic."
+            "message": "Call voice is suspicious. Please issue a verification challenge!" if trigger_challenge else "Voice appears authentic.",
+            "session_id": session_id
         }
     except Exception as e:
         add_event(f"Passive monitor prediction failure: {str(e)}", "ERROR", "PASSIVE_MONITOR")
@@ -272,10 +287,15 @@ async def verify_passive(
 
 @app.get("/challenge/request", response_model=ChallengeRequestResponse, summary="Request Dynamic Prompt", description="Generates a spontaneous phrase challenge for context-binding caller verification.")
 @app.post("/challenge/request", response_model=ChallengeRequestResponse)
-def get_challenge():
+def get_challenge(session_id: str = Form(..., description="Session ID")):
     """Generates a random challenge phrase for dynamic verification."""
+    if session_id not in SESSION_STORE:
+        raise HTTPException(status_code=400, detail="Invalid or missing session_id")
+        
     phrase = generate_challenge_phrase()
-    add_event(f"Generated dynamic challenge prompt: '{phrase}'", "INFO", "CHALLENGE_ENGINE")
+    SESSION_STORE[session_id]['phrase'] = phrase
+    
+    add_event(f"Generated dynamic challenge prompt: '{phrase}' for session {session_id[:8]}", "INFO", "CHALLENGE_ENGINE")
     return {
         "challenge_phrase": phrase,
         "instructions": "Prompt the caller to speak/respond to this phrase exactly."
@@ -284,8 +304,7 @@ def get_challenge():
 @app.post("/challenge/verify", response_model=ChallengeVerifyResponse, summary="Verify Challenge Response", description="Transcribes response audio offline using Whisper and fuses metrics using trained ML model.")
 async def verify_challenge(
     file: UploadFile = File(..., description="Challenge-response speech audio file."),
-    phrase: str = Form(..., description="The issued prompt challenge text."),
-    passive_score: float = Form(..., description="Initial passive authentication score (0.0 to 1.0).")
+    session_id: str = Form(..., description="Session identifier from the passive check.")
 ):
     """
     Evaluates the response audio to a dynamic challenge.
@@ -293,6 +312,13 @@ async def verify_challenge(
     """
     validate_audio_file(file)
     add_event(f"Received user challenge response audio: {file.filename}", "INFO", "CHALLENGE_ENGINE")
+    
+    session_data = SESSION_STORE.get(session_id)
+    if not session_data or 'phrase' not in session_data:
+        raise HTTPException(status_code=400, detail="Invalid session or challenge not requested.")
+        
+    phrase = session_data['phrase']
+    passive_score = session_data['passive_score']
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         shutil.copyfileobj(file.file, temp_file)

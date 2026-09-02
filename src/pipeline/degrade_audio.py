@@ -109,7 +109,7 @@ def degrade_python_fallback(input_path, output_path, codec="amr"):
     """
     import hashlib
     h = int(hashlib.md5(os.path.basename(input_path).encode("utf-8")).hexdigest(), 16) % (2**32)
-    np.random.seed(h)
+    rng = np.random.RandomState(h)
 
     if codec == "none":
         shutil.copy(input_path, output_path)
@@ -137,7 +137,7 @@ def degrade_python_fallback(input_path, output_path, codec="amr"):
         degraded = signal.filtfilt(b, a, data)
         
         # Add subtle compression artifact noise
-        noise = np.random.normal(0, 0.005, len(degraded))
+        noise = rng.normal(0, 0.005, len(degraded))
         degraded = degraded + noise
         
     sf.write(output_path, degraded, sr)
@@ -150,7 +150,7 @@ def apply_network_degradations(audio_path, output_path, packet_loss_rate=0.05, j
     """
     import hashlib
     h = int(hashlib.md5(os.path.basename(audio_path).encode("utf-8")).hexdigest(), 16) % (2**32)
-    np.random.seed(h)
+    rng = np.random.RandomState(h)
 
     data, sr = sf.read(audio_path)
     length = len(data)
@@ -163,7 +163,7 @@ def apply_network_degradations(audio_path, output_path, packet_loss_rate=0.05, j
     
     # Simulate packet loss
     if packet_loss_rate > 0:
-        loss_mask = np.random.rand(num_blocks) < packet_loss_rate
+        loss_mask = rng.rand(num_blocks) < packet_loss_rate
         for i in range(num_blocks):
             if loss_mask[i]:
                 start = i * block_size
@@ -182,8 +182,8 @@ def apply_network_degradations(audio_path, output_path, packet_loss_rate=0.05, j
                 block = modified_data[start:end]
                 
                 # Randomly inject a jitter gap (10% chance per block)
-                if np.random.rand() < 0.1:
-                    gap_size = np.random.randint(1, jitter_samples)
+                if rng.rand() < 0.1:
+                    gap_size = rng.randint(1, jitter_samples)
                     # Insert silence before the block
                     jittered_blocks.append(np.zeros(gap_size))
                 jittered_blocks.append(block)
@@ -205,8 +205,11 @@ def process_file(input_path, output_dir, codec="amr", packet_loss=0.05, jitter=1
     base_name = os.path.basename(input_path)
     os.makedirs(output_dir, exist_ok=True)
     
+    import uuid
+    uid = uuid.uuid4().hex[:8]
     # Encode degradation parameters into the filename to prevent caching collisions
-    degraded_file = os.path.join(output_dir, f"degraded_{codec}_L{packet_loss}_J{jitter}_{base_name}")
+    degraded_file = os.path.join(output_dir, f"degraded_{codec}_L{packet_loss}_J{jitter}_{uid}_{base_name}")
+
     
     # Fetch input audio stats
     try:

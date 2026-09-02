@@ -54,7 +54,7 @@ def verify_content_alignment(transcript, challenge_phrase):
         
     # 4. Non-verbal sound (Expects laughing words or keyword "laugh")
     elif "laugh" in phrase_lower:
-        keywords = ["laugh", "loudly", "haha", "hehe", "ha", "please"]
+        keywords = ["laugh", "loudly", "haha", "hehe", "ha"]
         matches = sum(1 for w in keywords if w in transcript)
         return matches >= 1
         
@@ -87,11 +87,7 @@ def score_response(response_audio_path, challenge_phrase, model_path=None):
     
     # Set final content score
     if content_matches:
-        file_basename = os.path.basename(response_audio_path).lower()
-        if "human" in file_basename:
-            content_adherence_score = np.random.uniform(0.88, 0.98)
-        else:
-            content_adherence_score = np.random.uniform(0.20, 0.50)
+        content_adherence_score = 1.0
         replay_detected = False
     else:
         # Replay or mismatched content detected

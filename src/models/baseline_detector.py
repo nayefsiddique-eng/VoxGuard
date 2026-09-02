@@ -43,9 +43,9 @@ def load_features_and_labels(split_name, feature_type="wav2vec2"):
     return np.array(X), np.array(y)
 
 def main():
-    parser = argparse.ArgumentParser(description="Retrain baseline detectors on real speech embeddings.")
-    parser.add_argument("--features", type=str, default="wav2vec2", choices=["wav2vec2", "mfcc"],
-                        help="Feature type to extract and train on (default: wav2vec2)")
+    parser = argparse.ArgumentParser(description="Train baseline spoofing detector.")
+    parser.add_argument("--features", type=str, default="mfcc", choices=["wav2vec2", "mfcc"],
+                        help="Feature type to use (mfcc or wav2vec2).")
     args = parser.parse_args()
     
     feature_type = args.features
@@ -73,25 +73,33 @@ def main():
     }
     
     results = {}
-    best_eval_eer = 1.0
+    best_dev_eer = 1.0
     best_model_name = None
     best_model = None
+    best_scaler = None
+    
+    # Fit scaler on train, apply to dev and eval
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_dev_scaled = scaler.transform(X_dev)
+    X_eval_scaled = scaler.transform(X_eval)
     
     # 3. Train and benchmark each model
     for name, clf in models.items():
         print(f"\nTraining {name}...")
-        clf.fit(X_train, y_train)
+        clf.fit(X_train_scaled, y_train)
         
         # Predict on Dev
-        dev_probs = clf.predict_proba(X_dev)[:, 1]
-        dev_preds = clf.predict(X_dev)
+        dev_probs = clf.predict_proba(X_dev_scaled)[:, 1]
+        dev_preds = clf.predict(X_dev_scaled)
         dev_acc = accuracy_score(y_dev, dev_preds)
         dev_auc = roc_auc_score(y_dev, dev_probs)
         dev_eer = compute_eer(y_dev, dev_probs)
         
         # Predict on Eval
-        eval_probs = clf.predict_proba(X_eval)[:, 1]
-        eval_preds = clf.predict(X_eval)
+        eval_probs = clf.predict_proba(X_eval_scaled)[:, 1]
+        eval_preds = clf.predict(X_eval_scaled)
         eval_acc = accuracy_score(y_eval, eval_preds)
         eval_auc = roc_auc_score(y_eval, eval_probs)
         eval_eer = compute_eer(y_eval, eval_probs)
@@ -104,17 +112,20 @@ def main():
             "eval_acc": eval_acc, "eval_auc": eval_auc, "eval_eer": eval_eer
         }
         
-        # Track best model based on Evaluation EER
-        if eval_eer < best_eval_eer:
-            best_eval_eer = eval_eer
+        # Track best model based on Dev EER
+        if dev_eer < best_dev_eer:
+            best_dev_eer = dev_eer
             best_model_name = name
-            best_model = clf
+            
+            # Create a pipeline to bundle the scaler and the model
+            from sklearn.pipeline import Pipeline
+            best_model = Pipeline([('scaler', scaler), ('clf', clf)])
             
     # Save the best model
     model_dir = os.path.dirname(__file__)
     model_path = os.path.join(model_dir, "detector.pkl")
     joblib.dump(best_model, model_path)
-    print(f"\nBest Model: {best_model_name} (Eval EER: {best_eval_eer*100:.2f}%)")
+    print(f"\nBest Model: {best_model_name} (Dev EER: {best_dev_eer*100:.2f}%)")
     print(f"Saved best model to: {model_path}")
     
     # 4. Generate results_clean.md markdown table

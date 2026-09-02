@@ -23,11 +23,11 @@ def parse_protocol_file(protocol_path, audio_dir):
         if not line:
             continue
         parts = line.split()
-        if len(parts) >= 4:
+        if len(parts) >= 5:
             speaker_id = parts[0]
             filename = parts[1]
-            system_id = parts[2]
-            label_str = parts[3]
+            system_id = parts[3]
+            label_str = parts[4]
             
             # Find the file in audio_dir (could be .flac or .wav)
             possible_paths = [

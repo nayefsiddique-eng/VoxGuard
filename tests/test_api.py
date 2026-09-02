@@ -5,7 +5,7 @@ import requests
 
 def is_server_running(url):
     try:
-        res = requests.get(f"{url}/challenge/request", timeout=2.0)
+        res = requests.get(f"{url}/system-status", timeout=2.0)
         return True
     except requests.exceptions.RequestException:
         return False
@@ -78,11 +78,22 @@ def main():
         python_exe = os.path.abspath(os.path.join(os.path.dirname(__file__), "../venv/Scripts/python.exe"))
         
         cmd = [python_exe, "-m", "uvicorn", "src.pipeline.api:app", "--host", "127.0.0.1", "--port", "8080"]
-        print(f"Starting FastAPI server on {base_url} (waiting 50s for PyTorch and Whisper initialization)...")
+        print(f"Starting FastAPI server on {base_url} (waiting for PyTorch and Whisper initialization)...")
         proc = subprocess.Popen(cmd, env=env)
-        time.sleep(50.0)
         
-        if proc.poll() is not None:
+        # Retry loop for up to 60 seconds
+        server_ready = False
+        for _ in range(30):
+            try:
+                res = requests.get(f"{base_url}/system-status", timeout=2.0)
+                if res.status_code == 200:
+                    server_ready = True
+                    break
+            except requests.exceptions.RequestException:
+                pass
+            time.sleep(2.0)
+            
+        if not server_ready or proc.poll() is not None:
             print("Error: Server failed to start.")
             return
 
@@ -116,8 +127,9 @@ def main():
             assert fake_data["status"] == "SUSPICIOUS"
             
         # --- Endpoint 3: Get Challenge Phrase ---
-        print("\n3. Testing GET /challenge/request...")
-        res = requests.get(f"{base_url}/challenge/request")
+        print("\n3. Testing POST /challenge/request...")
+        session_id = fake_data["session_id"]
+        res = requests.post(f"{base_url}/challenge/request", data={"session_id": session_id})
         challenge_data = res.json()
         print("Response:", challenge_data)
         assert res.status_code == 200
@@ -128,7 +140,7 @@ def main():
         # Submit the spoof file to see if the fuser classifies it as SUSPICIOUS/FAKE
         with open(fake_wav, "rb") as f:
             files = {"file": (os.path.basename(fake_wav), f, "audio/flac")}
-            data = {"phrase": phrase, "passive_score": fake_data["passive_authenticity_score"]}
+            data = {"session_id": session_id}
             res = requests.post(f"{base_url}/challenge/verify", files=files, data=data)
             print("Response:", res.json())
             assert res.status_code == 200
@@ -188,7 +200,9 @@ def main():
         print("\nAll endpoints and authentic real-vs-fake classifications verified successfully!")
         
     except Exception as e:
+        import traceback
         print(f"\nTest failed with error: {e}")
+        traceback.print_exc()
     finally:
         if proc is not None:
             print("\nStopping FastAPI server...")
