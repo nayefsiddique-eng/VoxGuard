@@ -1,45 +1,17 @@
-# VoxGuard: Real-Time AI Voice Clone and Deepfake Call Verification System
+# 🎙️ VoxGuard
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.95%2B-009688.svg?style=flat-square)](https://fastapi.tiangolo.com/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C.svg?style=flat-square)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
-[![Status: Prototype](https://img.shields.io/badge/Status-Prototype-orange.svg?style=flat-square)](#)
+**Real-Time AI Voice Clone & Deepfake Call Verification System**
 
-VoxGuard is an end-to-end call verification framework designed to detect AI voice clones (deepfakes) and prevent replay bypass attacks on active communication links. By combining continuous passive classification with dynamic vocal challenges, the system binds the caller's context to verify speaker authenticity in real time.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Whisper](https://img.shields.io/badge/ASR-OpenAI%20Whisper-FF6F00.svg)](https://github.com/openai/whisper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-<p align="center">
-  <img src="docs/architecture_diagram.png" alt="VoxGuard: Real-Time AI Voice Clone and Deepfake Call Verification System Architecture" width="750">
-  <br>
-  <i>Figure 1: Modular dataflow pipeline of the VoxGuard system, tracking call frames from continuous passive scans to dynamic context-bound challenges.</i>
-</p>
+**VoxGuard** is a speaker-independent deepfake voice verification platform using challenge-response authentication and passive spectral analysis to detect AI voice clones and synthesized call attacks in real time. Built on the ASVspoof 2019 benchmark dataset, inspired by principles from *GOTCHA* (EuroS&P 2024).
 
 ---
 
-## 📖 Table of Contents
-- [Threat Model & Overview](#-threat-model--overview)
-- [Core Security Features](#-core-security-features)
-- [How It Works](#%EF%B8%8F-how-it-works)
-- [Empirical Benchmarks](#-empirical-benchmarks)
-- [Visualizations & Performance Analysis](#-visualizations--performance-analysis)
-- [Getting Started](#%EF%B8%8F-getting-started)
-- [Project Layout](#-project-layout)
-- [Signal Processing & ML Stack](#%F0%9F%8E%9B%EF%B8%8F-signal-processing--ml-stack)
-- [License](#-license)
-
----
-
-## 📡 Threat Model & Overview
-
-With the rapid advancement of generative AI speech synthesis, high-fidelity voice cloning has become accessible to attackers. This enables real-time voice impersonation fraud—such as executive spoofing or distress scams—over standard cellular or VoIP calls. Traditional voice biometrics are vulnerable to pre-recorded replays or synthesized streams.
-
-VoxGuard addresses this vulnerability by adapting the video-centric **GOTCHA** (EuroS&P 2024) challenge-response paradigm to the acoustic domain. When the continuous passive monitor detects anomalies, it issues a spontaneous challenge prompt. Because the generator must synthesize the specific requested words on the fly, this introduces detectable acoustic artifacts, timing anomalies, and transcription mismatches.
-
----
-
-## 🛡️ Core Security Features
+## ⚡ Core Security Features
 
 - **Continuous Passive Scoring**: Analyzes 1.5s sliding windows of call audio to detect micro-discontinuities in the voice signature.
 - **Context-Bound Challenges**: Generates dynamic prompts (e.g., specific digit sequences or cognitive math queries) to verify active caller interaction.
@@ -50,16 +22,26 @@ VoxGuard addresses this vulnerability by adapting the video-centric **GOTCHA** (
 
 ---
 
-## ⚙️ How It Works
+## 🔄 Verification Pipeline
 
-The modular dataflow pipeline of the VoxGuard system is illustrated in Figure 1. The verification pipeline runs across the following stages:
+The verification pipeline operates across six distinct stages:
+
+```mermaid
+flowchart LR
+    A[Audio Stream] --> B[MFCC Feature Extraction]
+    B --> C[Passive Classifier]
+    C -->|Score < Threshold| D[Challenge Trigger]
+    D --> E[Offline Whisper ASR]
+    E --> F[Logistic Regression Fuser]
+    F --> G{Verdict: CLEAN / BLOCKED}
+```
 
 1. **Audio Capture**: Incoming call audio is captured and sliced into 1.5s windows or streamed as WebSocket frames via the administrative dashboard.
 2. **Feature Extraction**: Extracts 120-dimensional Mel-Frequency Cepstral Coefficients (MFCCs: static, delta, and delta-delta features) to capture vocoder footprints.
 3. **Passive Classifier**: Evaluates features against a speaker-independent Logistic Regression model to calculate an authenticity score.
 4. **Challenge Trigger**: If the passive score falls below a calibrated threshold, the engine dispatches a prompt challenge (e.g., *Please repeat the numbers: 7, 2, 0, 5, 6*).
 5. **ASR Content Scorer**: Transcribes the response using Whisper and calculates a content alignment score, blocking mismatching replayed files.
-6. **Unified Verdict**: A fuser model combines the passive and content scores to issue a final decision (CLEAN or BLOCKED).
+6. **Unified Verdict**: A fuser model combines the passive and content scores to issue a final decision (`CLEAN` or `BLOCKED`).
 
 ---
 
@@ -97,8 +79,8 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
   <img src="docs/feature_importance.png" alt="MFCC Feature Importance" width="48%">
 </p>
 
-* **ROC Projections**: The Receiver Operating Characteristic curve shows robust discrimination capacity, retaining an AUC of 0.9310 even under combined degradation profiles.
-* **Feature Weights**: Dynamic coefficients (deltas and delta-deltas) account for over 90% of model weight, proving that the model identifies vocoder velocity discontinuities rather than static timbre.
+- **ROC Projections**: The Receiver Operating Characteristic curve shows robust discrimination capacity, retaining an AUC of 0.9310 even under combined degradation profiles.
+- **Feature Weights**: Dynamic coefficients (deltas and delta-deltas) account for over 90% of model weight, proving that the model identifies vocoder velocity discontinuities rather than static timbre.
 
 ### Score Fusion & Confusion Matrices
 <p align="center">
@@ -110,20 +92,13 @@ Evaluated on the Eval split using condition-specific threshold calibration swept
   <img src="docs/confusion_matrix_combined.png" alt="Combined CM" width="31%">
 </p>
 
-* **Fuser Decision Boundary**: Visualizes the fuser classification hyperplane. Replay attacks fall along the bottom axis due to low content adherence, allowing linear separation.
-* **Confusion Matrices**: Shows block and pass rates under clean, AMR-NB compressed, and lossy channels.
+---
+
+> ⚠️ **Challenge Separation Note**: The aggregate challenge-response separation gap statistics use gTTS/pyttsx3 stand-in voice pairs reading mismatched content under CPU fallbacks. These separation gap metrics are intended for pipeline verification.
 
 ---
 
-> [!WARNING]  
-> **Preliminary Challenge Separation Stats**  
-> - The aggregate challenge-response separation gap statistics currently use gTTS/pyttsx3 stand-in voice pairs reading mismatched content under early CPU fallbacks.
-> - These separation gap metrics should not be presented as a validated scientific finding, and are intended for pipeline verification only.
-> - **Planned Next Step**: Record matching-content human audio and integrate local voice cloning (e.g. Coqui TTS) to recompute authentic speaker-cloned separation gaps.
-
----
-
-## 🛠️ Getting Started
+## 🚀 Getting Started
 
 ### 1. Prerequisites
 - Python 3.10+
@@ -167,13 +142,10 @@ Open `http://127.0.0.1:8000/` in your browser.
 
 ---
 
-## 📂 Project Layout
+## 📁 Project Layout
 
 ```
 VoxGuard/
-├── LICENSE
-├── requirements.txt
-├── .gitignore
 ├── data/                           # Challenge and placeholder WAVs
 ├── docs/                           # Performance logs and generated charts
 ├── scripts/                        # Dataset splitter and evaluator scripts
@@ -188,7 +160,7 @@ VoxGuard/
 
 ---
 
-## 🎛️ Signal Processing & ML Stack
+## 🛠️ Signal Processing & Tech Stack
 
 | Component | Library / Tool | Purpose |
 |---|---|---|
@@ -201,6 +173,6 @@ VoxGuard/
 
 ---
 
-## 📄 License
+## 📜 License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
