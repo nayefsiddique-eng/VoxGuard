@@ -15,9 +15,9 @@
 
 - **Continuous Passive Scoring**: Analyzes 1.5s sliding windows of call audio to detect micro-discontinuities in the voice signature.
 - **Context-Bound Challenges**: Generates dynamic prompts (e.g., specific digit sequences or cognitive math queries) to verify active caller interaction.
-- **Offline ASR Verification**: Transcribes responses locally using an offline OpenAI Whisper model on CPU, ensuring zero external network dependencies or data leakage.
+- **Offline ASR Verification**: Transcribes responses locally using an offline OpenAI Whisper model on CPU, after the Whisper weights have been downloaded.
 - **Codec & Channel Simulation**: Evaluates baseline robustness under standard telephony conditions (GSM, AMR-NB, and network packet loss).
-- **Anti-Replay Defense**: Matches transcribed words against the challenge prompt to detect and block pre-recorded human playback bypasses.
+- **Anti-Replay Defense**: Matches transcribed words against the challenge prompt to flag mismatched or potentially replayed audio.
 - **ML Score Fusion**: Combines passive caller scores and active challenge content adherence using a trained Logistic Regression fuser.
 
 ---
@@ -45,28 +45,13 @@ flowchart LR
 
 ---
 
-## 📊 Empirical Benchmarks
+## 📊 Evaluation artifacts
 
-### Baseline Classifier Performance
-Evaluated on the ASVspoof 2019 logical access evaluation set under strictly speaker-disjoint splits:
-
-| Model | Dev Accuracy | Dev EER | Eval Accuracy | Eval EER | Eval AUC |
-|---|---|---|---|---|---|
-| **Logistic Regression (Saved)** | **86.7%** | **15.62%** | **80.9%** | **5.92%** | **0.9870** |
-| Multi-Layer Perceptron (MLP) | 84.9% | 13.75% | 77.3% | 12.65% | 0.9400 |
-| Random Forest | 85.8% | 16.02% | 79.4% | 11.85% | 0.9565 |
-
-### Telephony Channel Robustness
-Evaluated on the Eval split using condition-specific threshold calibration swept on the held-out Dev split:
-
-| Channel Condition | Calibrated Threshold | Accuracy | EER | AUC | Accuracy Drop | EER Increase |
-|---|---|---|---|---|---|---|
-| **Clean Baseline** | 0.7943 | **80.9%** | **5.92%** | **0.9870** | - | - |
-| AMR-NB Codec | 0.9791 | 72.3% | 12.65% | 0.9645 | 8.5% | +6.73% |
-| GSM Codec (Cellular) | 0.1863 | 76.6% | 18.18% | 0.9420 | 4.3% | +12.25% |
-| Low Loss (5% Loss, 10ms Jitter) | 0.0557 | 59.6% | 6.73% | 0.9835 | 21.3% | +0.80% |
-| High Loss (15% Loss, 30ms Jitter) | 0.1241 | 78.7% | 11.45% | 0.9705 | 2.1% | +5.52% |
-| **Combined Severe Telephony** | 0.9038 | **80.9%** | **12.25%** | **0.9310** | **0.0%** | **+6.33%** |
+The repository includes [the baseline evaluation](docs/results_clean.md),
+[the channel degradation table](docs/results_degraded.md), and
+[the dataset setup instructions](docs/DOWNLOAD_DATA.md). The dashboard uses
+the checked-in results files. Reproducing the experiment requires the
+ASVspoof 2019 data and documented preprocessing.
 
 ---
 
@@ -176,3 +161,11 @@ VoxGuard/
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+### Evaluation artifacts
+
+The dashboard reads the versioned evaluation files in `docs/`. Results endpoints
+return HTTP 503 when their expected artifacts are missing or unreadable.
+Run `python -m pytest -q tests/test_results_api.py` after installing `pytest` and
+`httpx` alongside the runtime dependencies to check this behavior without
+downloading model weights or rerunning the ASVspoof evaluation.

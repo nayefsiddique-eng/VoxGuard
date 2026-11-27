@@ -1,4 +1,9 @@
+import json
+import logging
 import os
+import re
+from pathlib import Path
+from typing import Literal
 import time
 import shutil
 import tempfile
@@ -8,7 +13,7 @@ import uuid
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 from src.features.extract_features import extract_features
 from src.challenge_engine.phrase_challenge import generate_challenge_phrase
 from src.challenge_engine.response_scorer import score_response, get_whisper_model
@@ -137,6 +142,7 @@ def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/detector.pkl"))
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
 STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../static"))
+DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 
 # Helper for audio file validation
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".ogg", ".mp3"}
@@ -194,7 +200,9 @@ def get_classifier():
 @app.post("/verify-passive", response_model=PassiveVerifyResponse, summary="Passive Voice Deepfake Check", description="Passively analyzes 1.5s rolling audio frames using speaker-independent Logistic Regression classification.")
 async def verify_passive(
     file: UploadFile = File(..., description="Audio chunk to analyze (WAV/FLAC/MP3/OGG)."),
-    degradation: str = Query("none", enum=["none", "amr", "opus", "packet_loss", "combined"], description="Channel condition profile to apply.")
+    degradation: Literal["none", "amr", "opus", "packet_loss", "combined"] = Query(
+        "none", description="Channel condition profile to apply."
+    )
 ):
     """
     Passively monitors live call audio chunks.
@@ -388,108 +396,63 @@ def get_system_status():
         "last_checked_timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     }
 
-@app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data", description="Returns structured evaluation matrices and channel degradation benchmarks.")
-def get_results_summary():
-    # 1. Load confusion matrices dynamically
-    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-    cm_path = os.path.join(docs_dir, "confusion_matrices.json")
-    
-    # Defaults in case of parsing errors or first run
-    confusion_matrices = {
-        "clean": {"tp": 16, "tn": 98, "fp": 27, "fn": 0},
-        "amr": {"tp": 15, "tn": 87, "fp": 38, "fn": 1},
-        "combined": {"tp": 13, "tn": 103, "fp": 22, "fn": 3}
-    }
-    if os.path.exists(cm_path):
-        try:
-            import json
-            with open(cm_path, "r") as f:
-                confusion_matrices = json.load(f)
-        except Exception as e:
-            print(f"Error loading confusion matrices JSON: {e}")
-            
-    # 2. Parse results_degraded.md dynamically
-    benchmarks_path = os.path.join(docs_dir, "results_degraded.md")
-    degradation_benchmarks = []
-    if os.path.exists(benchmarks_path):
-        try:
-            with open(benchmarks_path, "r") as f:
-                lines = f.readlines()
-            for line in lines:
-                if line.startswith("|") and "Channel Condition" not in line and "---| " not in line and "---|--" not in line and "---" not in line:
-                    parts = [p.strip() for p in line.split("|") if p.strip() != ""]
-                    if len(parts) >= 5:
-                        condition = parts[0].replace("**", "")
-                        threshold_str = parts[1]
-                        
-                        raw_acc_ci = parts[2].replace("**", "")
-                        base_acc_str = raw_acc_ci.split("±")[0].replace("%", "").strip()
-                        
-                        eer_str = parts[3].replace("**", "").replace("%", "")
-                        auc_str = parts[4].replace("**", "")
-                        
-                        acc_drop_str = parts[5].replace("%", "") if len(parts) > 5 else "-"
-                        eer_inc_str = parts[6].replace("+", "").replace("%", "") if len(parts) > 6 else "-"
-                        
-                        try:
-                            threshold = float(threshold_str) if threshold_str != "-" else 0.5
-                            accuracy = float(base_acc_str) / 100.0 if base_acc_str != "-" else 0.0
-                            eer = float(eer_str) / 100.0 if eer_str != "-" else 0.0
-                            auc = float(auc_str) if auc_str != "-" else 0.0
-                            accuracy_drop = float(acc_drop_str) / 100.0 if (acc_drop_str != "-" and acc_drop_str != "" and acc_drop_str != " ") else 0.0
-                            eer_increase = float(eer_inc_str) / 100.0 if (eer_inc_str != "-" and eer_inc_str != "" and eer_inc_str != " ") else 0.0
-                            
-                            degradation_benchmarks.append(
-                                DegradationRow(
-                                    condition=condition,
-                                    threshold=threshold,
-                                    accuracy=accuracy,
-                                    accuracy_ci=raw_acc_ci,
-                                    eer=eer,
-                                    auc=auc,
-                                    accuracy_drop=accuracy_drop,
-                                    eer_increase=eer_increase
-                                )
-                            )
-                        except Exception as parse_err:
-                            pass
-        except Exception as e:
-            print(f"Error parsing results_degraded.md: {e}")
-            
-    # Fallback to defaults if parsing returned empty
-    if not degradation_benchmarks:
-        degradation_benchmarks = [
-            DegradationRow(condition="Clean Baseline", threshold=0.7943, accuracy=0.809, accuracy_ci="80.9% ± 6.5%", eer=0.0592, auc=0.9870, accuracy_drop=0.0, eer_increase=0.0),
-            DegradationRow(condition="AMR-NB Codec", threshold=0.9791, accuracy=0.723, accuracy_ci="72.3% ± 7.4%", eer=0.1265, auc=0.9645, accuracy_drop=0.085, eer_increase=0.0673),
-            DegradationRow(condition="GSM Codec (Cellular)", threshold=0.1863, accuracy=0.766, accuracy_ci="76.6% ± 7.0%", eer=0.1818, auc=0.9420, accuracy_drop=0.043, eer_increase=0.1225)
-        ]
-        
-    return {
-        "confusion_matrices": confusion_matrices,
-        "degradation_benchmarks": degradation_benchmarks
-    }
+def read_degradation_rows(path: Path) -> list[DegradationRow]:
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        cells = [part.strip().replace("**", "") for part in line.strip().strip("|").split("|")]
+        if not line.startswith("|") or len(cells) != 7:
+            continue
+        condition, threshold, accuracy_ci, eer, auc, accuracy_drop, eer_increase = cells
+        if condition == "Channel Condition" or condition.startswith("---"):
+            continue
 
-@app.get("/results/sensitivity", response_model=list[SensitivityRow], summary="Threshold Sensitivity", description="Returns Accuracy, FPR, and FNR across thresholds 0.1 to 0.9.")
+        accuracy_match = re.match(r"^(\d+(?:\.\d+)?)%", accuracy_ci)
+        if accuracy_match is None:
+            raise ValueError("Invalid accuracy in degradation table")
+
+        rows.append(DegradationRow(
+            condition=condition,
+            threshold=float(threshold),
+            accuracy=float(accuracy_match[1]) / 100,
+            accuracy_ci=accuracy_ci,
+            eer=float(eer.removesuffix("%")) / 100,
+            auc=float(auc),
+            accuracy_drop=0.0 if accuracy_drop == "-" else float(accuracy_drop.removesuffix("%")) / 100,
+            eer_increase=0.0 if eer_increase == "-" else float(eer_increase.removesuffix("%")) / 100,
+        ))
+    if not rows:
+        raise ValueError("No degradation results found")
+    return rows
+
+
+@app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data")
+def get_results_summary():
+    try:
+        matrices = json.loads((DOCS_DIR / "confusion_matrices.json").read_text(encoding="utf-8"))
+        if not matrices:
+            raise ValueError("No confusion matrices found")
+        return ResultsSummaryResponse(
+            confusion_matrices=matrices,
+            degradation_benchmarks=read_degradation_rows(DOCS_DIR / "results_degraded.md"),
+        )
+    except (OSError, ValueError, TypeError) as exc:
+        logging.getLogger(__name__).warning("Could not read evaluation summary: %s", exc)
+        raise HTTPException(status_code=503, detail="Evaluation summary artifacts are unavailable.") from exc
+
+
+@app.get("/results/sensitivity", response_model=list[SensitivityRow], summary="Threshold Sensitivity")
 def get_results_sensitivity():
-    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-    sensitivity_path = os.path.join(docs_dir, "threshold_sensitivity.json")
-    if os.path.exists(sensitivity_path):
-        try:
-            import json
-            with open(sensitivity_path, "r") as f:
-                data = json.load(f)
-                return data
-        except Exception as e:
-            print(f"Error loading threshold_sensitivity.json: {e}")
-            
-    # Fallback default values
-    return [
-        {"threshold": 0.1, "accuracy": 0.50, "fpr": 0.50, "fnr": 0.0},
-        {"threshold": 0.3, "accuracy": 0.65, "fpr": 0.35, "fnr": 0.0},
-        {"threshold": 0.5, "accuracy": 0.75, "fpr": 0.25, "fnr": 0.0},
-        {"threshold": 0.7, "accuracy": 0.80, "fpr": 0.20, "fnr": 0.05},
-        {"threshold": 0.9, "accuracy": 0.70, "fpr": 0.10, "fnr": 0.40}
-    ]
+    try:
+        data = TypeAdapter(list[SensitivityRow]).validate_json(
+            (DOCS_DIR / "threshold_sensitivity.json").read_bytes()
+        )
+        if not data:
+            raise ValueError("No sensitivity results found")
+        return data
+    except (OSError, ValueError) as exc:
+        logging.getLogger(__name__).warning("Could not read sensitivity results: %s", exc)
+        raise HTTPException(status_code=503, detail="Threshold sensitivity artifacts are unavailable.") from exc
+
 
 # WebSocket Real-Time Audio Streaming Endpoint
 @app.websocket("/stream")
@@ -575,9 +538,8 @@ if os.path.exists(DATA_DIR):
     app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 # Serve the docs directory statically at /docs
-docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-if os.path.exists(docs_dir):
-    app.mount("/docs", StaticFiles(directory=docs_dir), name="docs")
+if DOCS_DIR.is_dir():
+    app.mount("/docs", StaticFiles(directory=DOCS_DIR), name="docs")
 
 # Serve the frontend static directory at the root /
 if not os.path.exists(STATIC_DIR):
