@@ -169,3 +169,17 @@ return HTTP 503 when their expected artifacts are missing or unreadable.
 Run `python -m pytest -q tests/test_results_api.py` after installing `pytest` and
 `httpx` alongside the runtime dependencies to check this behavior without
 downloading model weights or rerunning the ASVspoof evaluation.
+
+Audio uploads accept at most 10 MiB and 120 seconds in supported decoder
+formats. The request envelope and individual WebSocket frames have separate
+limits. Challenges expire after five minutes and can consume one response.
+Run the API on loopback for the local demo. Its bounded in-memory history
+is shared by clients of the same process.
+
+With the runtime dependencies, FFmpeg, `pytest` and `httpx2`, run
+`python -m pytest -q`. Set `VOXGUARD_RUN_MODEL_TEST=1` to allow the local
+Whisper weights to load and verify one real request sequence using the shipped
+demo WAV. For dataset evaluation, use the ASVspoof 2019 Logical Access archive
+and documented protocol files in [data setup](docs/DOWNLOAD_DATA.md). Run
+`python scripts/run_full_evaluation.py` after provisioning the dataset and
+record the dataset split, sample count and output from that run.

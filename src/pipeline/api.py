@@ -1,3 +1,5 @@
+import asyncio
+from collections import deque
 import json
 import logging
 import os
@@ -10,14 +12,18 @@ import tempfile
 import joblib
 import subprocess
 import uuid
+
+import soundfile
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, TypeAdapter
 from src.features.extract_features import extract_features
 from src.challenge_engine.phrase_challenge import generate_challenge_phrase
 from src.challenge_engine.response_scorer import score_response, get_whisper_model
 from src.pipeline.fusion import fuse_scores
+from src.pipeline.body_limit import RequestBodyLimit
 from src.pipeline.degrade_audio import process_file, get_ffmpeg_path
 
 app = FastAPI(
@@ -25,6 +31,15 @@ app = FastAPI(
     description="Backend API for continuous passive voice clone detection, challenge dispatching, and score fusion verification.",
     version="1.0.0"
 )
+
+MAX_FILE_BYTES = 10 * 1024 * 1024
+MAX_REQUEST_BYTES = 11 * 1024 * 1024
+MAX_AUDIO_SECONDS = 120
+MAX_STREAM_FRAME_BYTES = 256 * 1024
+CHALLENGE_TTL_SECONDS = 300
+MAX_CHALLENGES = 512
+
+app.add_middleware(RequestBodyLimit, max_bytes=MAX_REQUEST_BYTES)
 
 # Pydantic Schemas for Swagger / API documentation
 class PassiveVerifyResponse(BaseModel):
@@ -124,8 +139,8 @@ async def log_latency_middleware(request: Request, call_next):
 # Global variables to store the loaded model and session logs
 CLF = None
 START_TIME = time.time()
-SESSION_EVENTS = []
-SESSION_HISTORY = []
+SESSION_EVENTS = deque(maxlen=200)
+SESSION_HISTORY = deque(maxlen=200)
 SESSION_STORE = {}
 
 def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
@@ -147,7 +162,7 @@ DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 # Helper for audio file validation
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".ogg", ".mp3"}
 def validate_audio_file(file: UploadFile):
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
@@ -157,10 +172,21 @@ def validate_audio_file(file: UploadFile):
     file.file.seek(0, 2)
     size = file.file.tell()
     file.file.seek(0)
-    if size > 10 * 1024 * 1024:
+    if size > MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
     if size == 0:
         raise HTTPException(status_code=400, detail="Empty file uploaded.")
+    try:
+        info = soundfile.info(file.file)
+        if info.frames <= 0:
+            raise ValueError("Audio has no samples")
+    except (ValueError, RuntimeError, soundfile.LibsndfileError) as exc:
+        raise HTTPException(status_code=422, detail="Unable to decode the uploaded audio.") from exc
+    finally:
+        file.file.seek(0)
+    if info.duration > MAX_AUDIO_SECONDS:
+        raise HTTPException(status_code=413, detail="Audio is longer than 120 seconds.")
+
 
 @app.on_event("startup")
 def startup_event():
@@ -257,7 +283,13 @@ async def verify_passive(
         session_id = None
         if trigger_challenge:
             session_id = str(uuid.uuid4())
-            SESSION_STORE[session_id] = {'passive_score': passive_score}
+            now = time.monotonic()
+            for expired_id in list(SESSION_STORE):
+                if SESSION_STORE[expired_id]["expires_at"] <= now:
+                    del SESSION_STORE[expired_id]
+            if len(SESSION_STORE) >= MAX_CHALLENGES:
+                del SESSION_STORE[next(iter(SESSION_STORE))]
+            SESSION_STORE[session_id] = {"passive_score": passive_score, "expires_at": now + CHALLENGE_TTL_SECONDS}
         
         add_event(f"Passive evaluation complete. Score: {passive_score:.4f} | Verdict: {status}", "WARNING" if trigger_challenge else "SUCCESS", "PASSIVE_MONITOR")
         
@@ -284,8 +316,8 @@ async def verify_passive(
             "session_id": session_id
         }
     except Exception as e:
-        add_event(f"Passive monitor prediction failure: {str(e)}", "ERROR", "PASSIVE_MONITOR")
-        raise HTTPException(status_code=500, detail=f"Feature extraction or prediction error: {str(e)}")
+        add_event("Passive monitor prediction failed.", "ERROR", "PASSIVE_MONITOR")
+        raise HTTPException(status_code=500, detail="Feature extraction or prediction failed.") from e
     finally:
         if os.path.exists(temp_path):
             try:
@@ -295,15 +327,17 @@ async def verify_passive(
 
 @app.get("/challenge/request", response_model=ChallengeRequestResponse, summary="Request Dynamic Prompt", description="Generates a spontaneous phrase challenge for context-binding caller verification.")
 @app.post("/challenge/request", response_model=ChallengeRequestResponse)
-def get_challenge(session_id: str = Form(..., description="Session ID")):
-    """Generates a random challenge phrase for dynamic verification."""
-    if session_id not in SESSION_STORE:
-        raise HTTPException(status_code=400, detail="Invalid or missing session_id")
-        
-    phrase = generate_challenge_phrase()
-    SESSION_STORE[session_id]['phrase'] = phrase
-    
-    add_event(f"Generated dynamic challenge prompt: '{phrase}' for session {session_id[:8]}", "INFO", "CHALLENGE_ENGINE")
+async def get_challenge(session_id: str = Form(..., description="Session ID")):
+    """Issue one phrase until the session expires or its response is consumed."""
+    session = SESSION_STORE.get(session_id)
+    if not session or session["expires_at"] <= time.monotonic():
+        SESSION_STORE.pop(session_id, None)
+        raise HTTPException(status_code=400, detail="Invalid or expired session.")
+    if "phrase" not in session:
+        session["phrase"] = generate_challenge_phrase()
+        add_event("Generated dynamic challenge prompt.", "INFO", "CHALLENGE_ENGINE")
+
+    phrase = session["phrase"]
     return {
         "challenge_phrase": phrase,
         "instructions": "Prompt the caller to speak/respond to this phrase exactly."
@@ -322,8 +356,12 @@ async def verify_challenge(
     add_event(f"Received user challenge response audio: {file.filename}", "INFO", "CHALLENGE_ENGINE")
     
     session_data = SESSION_STORE.get(session_id)
-    if not session_data or 'phrase' not in session_data:
-        raise HTTPException(status_code=400, detail="Invalid session or challenge not requested.")
+    if not session_data or session_data["expires_at"] <= time.monotonic():
+        SESSION_STORE.pop(session_id, None)
+        raise HTTPException(status_code=400, detail="Invalid or expired session.")
+    if "phrase" not in session_data:
+        raise HTTPException(status_code=400, detail="Challenge not requested.")
+    del SESSION_STORE[session_id]
         
     phrase = session_data['phrase']
     passive_score = session_data['passive_score']
@@ -336,7 +374,7 @@ async def verify_challenge(
         add_event("Evaluating acoustic features of challenge response...", "INFO", "CHALLENGE_ENGINE")
         res = score_response(temp_path, phrase, model_path=MODEL_PATH)
         
-        add_event(f"Offline Whisper transcription complete: '{res['transcript']}'", "INFO", "CHALLENGE_ENGINE")
+        add_event("Offline Whisper transcription complete.", "INFO", "CHALLENGE_ENGINE")
         add_event(f"Voice footprint score: {res['voice_authenticity_score']:.4f} | Content alignment score: {res['content_adherence_score']:.4f}", "INFO", "CHALLENGE_ENGINE")
         
         if res['replay_attack_detected']:
@@ -372,19 +410,19 @@ async def verify_challenge(
             "final_status": fstatus
         }
     except Exception as e:
-        add_event(f"Challenge verification failure: {str(e)}", "ERROR", "CHALLENGE_ENGINE")
-        raise HTTPException(status_code=500, detail=f"Verification failure: {str(e)}")
+        add_event("Challenge verification failed.", "ERROR", "CHALLENGE_ENGINE")
+        raise HTTPException(status_code=500, detail="Challenge verification failed.") from e
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
 @app.get("/events", response_model=list[EventLogEntry], summary="Session Events Log", description="Exposes server-side logs for events tracking.")
 def get_events():
-    return SESSION_EVENTS
+    return list(SESSION_EVENTS)
 
 @app.get("/history", response_model=list[CallHistoryEntry], summary="Call History Log", description="Exposes all past verification attempts in this session.")
 def get_history():
-    return SESSION_HISTORY
+    return list(SESSION_HISTORY)
 
 @app.get("/system-status", response_model=SystemStatusResponse, summary="System Status Indicator", description="Returns models loading states, uptime, and last-check timestamp.")
 def get_system_status():
@@ -454,84 +492,57 @@ def get_results_sensitivity():
         raise HTTPException(status_code=503, detail="Threshold sensitivity artifacts are unavailable.") from exc
 
 
-# WebSocket Real-Time Audio Streaming Endpoint
+def score_webm_window(data, classifier):
+    ffmpeg = get_ffmpeg_path()
+    if not ffmpeg:
+        return None
+    with tempfile.TemporaryDirectory(prefix="voxguard-stream-") as directory:
+        container = Path(directory) / "input.webm"
+        wav = Path(directory) / "window.wav"
+        container.write_bytes(data)
+        try:
+            subprocess.run([
+                ffmpeg, "-nostdin", "-protocol_whitelist", "file,pipe", "-f", "webm",
+                "-i", str(container), "-t", "10", "-ar", "16000", "-ac", "1", "-f", "wav", str(wav),
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8, check=True)
+            features = extract_features(wav, feature_type="mfcc", use_cache=False).reshape(1, -1)
+            return float(classifier.predict_proba(features)[0][1])
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+            return None
+
+
 @app.websocket("/stream")
 async def websocket_stream(websocket: WebSocket):
     await websocket.accept()
-    clf = get_classifier()
-    
-    # Running byte array to hold streamed audio chunks
-    audio_bytes_accumulator = bytearray()
+    if CLF is None:
+        await websocket.close(code=1013)
+        return
+    classifier = CLF
+    audio = bytearray()
     chunk_counter = 0
-    
-    print("WebSocket client connected for real-time verification.")
-    
     try:
         while True:
-            # Receive binary chunk from client mic stream
-            data = await websocket.receive_bytes()
-            audio_bytes_accumulator.extend(data)
+            data = await asyncio.wait_for(websocket.receive_bytes(), timeout=30)
+            if len(data) > MAX_STREAM_FRAME_BYTES:
+                await websocket.close(code=1009)
+                return
+            audio.extend(data)
             chunk_counter += 1
-            
-            # Analyze every ~1.5 seconds of accumulated audio chunks
-            # If the user streams at 44.1kHz or standard compressed sizes,
-            # we run inference once we've collected enough bytes (e.g. > 48KB of data)
-            if len(audio_bytes_accumulator) >= 64000:
-                # Write current buffer to a temp container file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_input:
-                    temp_input.write(audio_bytes_accumulator)
-                    temp_input_path = temp_input.name
-                
-                temp_wav_path = temp_input_path.replace(".webm", ".wav")
-                
-                # Convert buffer to a standard WAV (16kHz mono) using ffmpeg
-                ffmpeg_cmd = get_ffmpeg_path()
-                if ffmpeg_cmd:
-                    cmd = [
-                        ffmpeg_cmd, "-y", "-i", temp_input_path,
-                        "-ar", "16000", "-ac", "1", "-f", "wav", temp_wav_path
-                    ]
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-                # Verify converted WAV file exists
-                if os.path.exists(temp_wav_path):
-                    try:
-                        # Extract features and predict
-                        features = extract_features(temp_wav_path, feature_type="mfcc", use_cache=False)
-                        features = features.reshape(1, -1)
-                        
-                        probs = clf.predict_proba(features)[0]
-                        passive_score = float(probs[1]) # Prob of being Real
-                        
-                        # Send back score JSON
-                        await websocket.send_json({
-                            "chunk_id": chunk_counter,
-                            "passive_authenticity_score": round(passive_score, 4),
-                            "trigger_challenge": passive_score < 0.5,
-                            "status": "SUSPICIOUS" if passive_score < 0.5 else "CLEAN"
-                        })
-                    except Exception as e:
-                        # Keep connection alive even on single chunk decoding failure
-                        pass
-                    finally:
-                        try:
-                            os.remove(temp_wav_path)
-                        except:
-                            pass
-                
-                try:
-                    os.remove(temp_input_path)
-                except:
-                    pass
-                
-                # Keep a sliding window: discard older bytes to prevent buffer growth
-                # Retain the last ~32KB to allow overlapping feature extraction windows
-                audio_bytes_accumulator = audio_bytes_accumulator[-32000:]
-                
+            if len(audio) >= 64000:
+                score = await run_in_threadpool(score_webm_window, bytes(audio), classifier)
+                if score is not None:
+                    await websocket.send_json({
+                        "chunk_id": chunk_counter,
+                        "passive_authenticity_score": round(score, 4),
+                        "trigger_challenge": score < 0.5,
+                        "status": "SUSPICIOUS" if score < 0.5 else "CLEAN",
+                    })
+                audio = audio[-32000:]
+    except TimeoutError:
+        await websocket.close(code=1001)
     except WebSocketDisconnect:
-        print("WebSocket client disconnected.")
-    except Exception as e:
-        print(f"WebSocket execution error: {e}")
+        return
+
 
 # Serve the data directory statically at /data
 if os.path.exists(DATA_DIR):
