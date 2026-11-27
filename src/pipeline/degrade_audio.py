@@ -9,12 +9,10 @@ import scipy.signal as signal
 
 def get_ffmpeg_path():
     """Locates the ffmpeg executable on the system, including winget local directories."""
-    # 1. Try global path
-    try:
-        subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        return "ffmpeg"
-    except (subprocess.SubprocessError, FileNotFoundError):
-        pass
+    configured = os.environ.get("FFMPEG_EXECUTABLE", "ffmpeg")
+    command = shutil.which(configured)
+    if command:
+        return command
 
     # 2. Try WinGet package directories in Local AppData
     local_appdata = os.environ.get("LOCALAPPDATA", "")

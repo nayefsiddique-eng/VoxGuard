@@ -64,8 +64,10 @@ def test_two_real_webm_windows_can_issue_challenges(tmp_path):
     import subprocess
 
     window = tmp_path / "sample.webm"
+    ffmpeg = api.get_ffmpeg_path()
+    assert ffmpeg, "Install FFmpeg to run the WebSocket smoke test."
     subprocess.run([
-        api.get_ffmpeg_path(), "-nostdin", "-y", "-i", str(ROOT / "data/demo/class_b_fake_0.wav"),
+        ffmpeg, "-nostdin", "-y", "-i", str(ROOT / "data/demo/class_b_fake_0.wav"),
         "-t", "1.6", "-c:a", "libopus", "-f", "webm", str(window),
     ], check=True, capture_output=True, timeout=15)
     samples = window.read_bytes()
