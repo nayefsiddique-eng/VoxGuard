@@ -4,7 +4,7 @@ torch
 torchaudio
 librosa
 soundfile
-scikit-learn
+scikit-learn==1.9.0
 openai-whisper
 transformers
 matplotlib
