@@ -36,6 +36,7 @@ MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_REQUEST_BYTES = 11 * 1024 * 1024
 MAX_AUDIO_SECONDS = 120
 MAX_STREAM_FRAME_BYTES = 256 * 1024
+PASSIVE_THRESHOLD = 0.7943
 CHALLENGE_TTL_SECONDS = 300
 MAX_CHALLENGES = 512
 
@@ -142,6 +143,18 @@ START_TIME = time.time()
 SESSION_EVENTS = deque(maxlen=200)
 SESSION_HISTORY = deque(maxlen=200)
 SESSION_STORE = {}
+
+def create_challenge_session(passive_score):
+    session_id = str(uuid.uuid4())
+    now = time.monotonic()
+    for expired_id in list(SESSION_STORE):
+        if SESSION_STORE[expired_id]["expires_at"] <= now:
+            del SESSION_STORE[expired_id]
+    if len(SESSION_STORE) >= MAX_CHALLENGES:
+        del SESSION_STORE[next(iter(SESSION_STORE))]
+    SESSION_STORE[session_id] = {"passive_score": passive_score, "expires_at": now + CHALLENGE_TTL_SECONDS}
+    return session_id
+
 
 def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
     timestamp = time.strftime("%H:%M:%S", time.localtime())
@@ -277,19 +290,12 @@ async def verify_passive(
         probs = clf.predict_proba(features)[0]
         passive_score = float(probs[1])
         
-        trigger_challenge = passive_score < 0.7943  # Using the calibrated clean baseline threshold
+        trigger_challenge = passive_score < PASSIVE_THRESHOLD  # Using the calibrated clean baseline threshold
         status = "SUSPICIOUS" if trigger_challenge else "CLEAN"
         
         session_id = None
         if trigger_challenge:
-            session_id = str(uuid.uuid4())
-            now = time.monotonic()
-            for expired_id in list(SESSION_STORE):
-                if SESSION_STORE[expired_id]["expires_at"] <= now:
-                    del SESSION_STORE[expired_id]
-            if len(SESSION_STORE) >= MAX_CHALLENGES:
-                del SESSION_STORE[next(iter(SESSION_STORE))]
-            SESSION_STORE[session_id] = {"passive_score": passive_score, "expires_at": now + CHALLENGE_TTL_SECONDS}
+            session_id = create_challenge_session(passive_score)
         
         add_event(f"Passive evaluation complete. Score: {passive_score:.4f} | Verdict: {status}", "WARNING" if trigger_challenge else "SUCCESS", "PASSIVE_MONITOR")
         
@@ -512,7 +518,7 @@ def score_webm_window(data, classifier):
 
 
 @app.websocket("/stream")
-async def websocket_stream(websocket: WebSocket):
+async def websocket_stream(websocket: WebSocket, segments: bool = False):
     await websocket.accept()
     if CLF is None:
         await websocket.close(code=1013)
@@ -526,18 +532,25 @@ async def websocket_stream(websocket: WebSocket):
             if len(data) > MAX_STREAM_FRAME_BYTES:
                 await websocket.close(code=1009)
                 return
-            audio.extend(data)
             chunk_counter += 1
-            if len(audio) >= 64000:
-                score = await run_in_threadpool(score_webm_window, bytes(audio), classifier)
-                if score is not None:
-                    await websocket.send_json({
-                        "chunk_id": chunk_counter,
-                        "passive_authenticity_score": round(score, 4),
-                        "trigger_challenge": score < 0.5,
-                        "status": "SUSPICIOUS" if score < 0.5 else "CLEAN",
-                    })
+            if segments:
+                window = data
+            else:
+                audio.extend(data)
+                if len(audio) < 64000:
+                    continue
+                window = bytes(audio)
                 audio = audio[-32000:]
+            score = await run_in_threadpool(score_webm_window, window, classifier)
+            if score is not None:
+                suspicious = score < PASSIVE_THRESHOLD
+                await websocket.send_json({
+                    "chunk_id": chunk_counter,
+                    "passive_authenticity_score": round(score, 4),
+                    "trigger_challenge": suspicious,
+                    "status": "SUSPICIOUS" if suspicious else "CLEAN",
+                    "session_id": create_challenge_session(score) if suspicious else None,
+                })
     except TimeoutError:
         await websocket.close(code=1001)
     except WebSocketDisconnect:

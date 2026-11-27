@@ -1173,6 +1173,7 @@
         let currentSessionId = null;
         let ws = null;
         let isStreaming = false;
+        let streamSegmentTimer = null;
         let activePresetIndex = 0;
 
         // Preset Library Scenarios mapping
@@ -1706,47 +1707,64 @@
 
         // Live WebSockets stream audio flow
         async function startStreamingMic() {
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            ws = new WebSocket(`${protocol}//${window.location.host}/stream`);
-            
-            ws.onopen = () => {
-                setStepProgress(1, "active");
-            };
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                currentPassiveScore = data.passive_authenticity_score;
-                setGaugeScore(currentPassiveScore);
-                
-                if (data.trigger_challenge) {
-                    toggleStreamingMic(); // Halt stream on trigger to execute challenge
-                    triggerManualChallenge();
-                }
-            };
-            
+            if (!MediaRecorder.isTypeSupported("audio/webm")) {
+                throw new Error("This browser cannot record WebM audio.");
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             visualizerStream = stream;
             startOscilloscope(stream);
-            
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = async (event) => {
-                if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-                    const arrayBuffer = await event.data.arrayBuffer();
-                    ws.send(arrayBuffer);
+
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const socket = new WebSocket(`${protocol}//${window.location.host}/stream?segments=true`);
+            const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+            ws = socket;
+            mediaRecorder = recorder;
+
+            function recordSegment() {
+                if (!isStreaming || ws !== socket || socket.readyState !== WebSocket.OPEN) return;
+                recorder.start();
+                streamSegmentTimer = setTimeout(() => {
+                    if (recorder.state === "recording") recorder.stop();
+                }, 1600);
+            }
+
+            socket.onopen = () => {
+                setStepProgress(1, "active");
+                recordSegment();
+            };
+            socket.onclose = () => {
+                if (ws === socket && isStreaming) toggleStreamingMic();
+            };
+            socket.onmessage = async (event) => {
+                if (ws !== socket) return;
+                const data = JSON.parse(event.data);
+                currentPassiveScore = data.passive_authenticity_score;
+                currentSessionId = data.session_id;
+                setGaugeScore(currentPassiveScore);
+                if (data.trigger_challenge && currentSessionId) {
+                    await toggleStreamingMic();
+                    await triggerManualChallenge();
                 }
             };
-            mediaRecorder.start(500); // 500ms slices
+            recorder.ondataavailable = (event) => {
+                if (isStreaming && event.data.size && socket.readyState === WebSocket.OPEN) {
+                    socket.send(event.data);
+                }
+            };
+            recorder.onstop = recordSegment;
         }
 
         function stopStreamingMic() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
+            clearTimeout(streamSegmentTimer);
+            streamSegmentTimer = null;
+            if (mediaRecorder?.state === "recording") mediaRecorder.stop();
             if (visualizerStream) {
                 visualizerStream.getTracks().forEach(track => track.stop());
+                visualizerStream = null;
             }
-            if (ws) ws.close();
+            const socket = ws;
+            ws = null;
+            if (socket) socket.close();
             stopOscilloscope();
         }
 
@@ -1759,6 +1777,7 @@
                     btn.classList.add("btn-recording");
                     btn.innerText = "Stop Stream";
                 } catch (err) {
+                    stopStreamingMic();
                     console.error("Streaming mic activation failed:", err);
                 }
             } else {

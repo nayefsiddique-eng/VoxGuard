@@ -183,3 +183,8 @@ demo WAV. For dataset evaluation, use the ASVspoof 2019 Logical Access archive
 and documented protocol files in [data setup](docs/DOWNLOAD_DATA.md). Run
 `python scripts/run_full_evaluation.py` after provisioning the dataset and
 record the dataset split, sample count and output from that run.
+
+The browser sends complete WebM segments. The hosted smoke test encodes two
+segments from the shipped audio and verifies FFmpeg conversion, scoring and
+challenge handoff over WebSocket. Microphone hardware and codec negotiation
+still require validation on the target browser and device.
