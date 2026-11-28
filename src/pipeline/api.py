@@ -1,18 +1,29 @@
+import asyncio
+from collections import deque
+import json
+import logging
 import os
+import re
+from pathlib import Path
+from typing import Literal
 import time
 import shutil
 import tempfile
 import joblib
 import subprocess
 import uuid
+
+import soundfile
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 from src.features.extract_features import extract_features
 from src.challenge_engine.phrase_challenge import generate_challenge_phrase
 from src.challenge_engine.response_scorer import score_response, get_whisper_model
 from src.pipeline.fusion import fuse_scores
+from src.pipeline.body_limit import RequestBodyLimit
 from src.pipeline.degrade_audio import process_file, get_ffmpeg_path
 
 app = FastAPI(
@@ -20,6 +31,16 @@ app = FastAPI(
     description="Backend API for continuous passive voice clone detection, challenge dispatching, and score fusion verification.",
     version="1.0.0"
 )
+
+MAX_FILE_BYTES = 10 * 1024 * 1024
+MAX_REQUEST_BYTES = 11 * 1024 * 1024
+MAX_AUDIO_SECONDS = 120
+MAX_STREAM_FRAME_BYTES = 256 * 1024
+PASSIVE_THRESHOLD = 0.7943
+CHALLENGE_TTL_SECONDS = 300
+MAX_CHALLENGES = 512
+
+app.add_middleware(RequestBodyLimit, max_bytes=MAX_REQUEST_BYTES)
 
 # Pydantic Schemas for Swagger / API documentation
 class PassiveVerifyResponse(BaseModel):
@@ -119,9 +140,21 @@ async def log_latency_middleware(request: Request, call_next):
 # Global variables to store the loaded model and session logs
 CLF = None
 START_TIME = time.time()
-SESSION_EVENTS = []
-SESSION_HISTORY = []
+SESSION_EVENTS = deque(maxlen=200)
+SESSION_HISTORY = deque(maxlen=200)
 SESSION_STORE = {}
+
+def create_challenge_session(passive_score):
+    session_id = str(uuid.uuid4())
+    now = time.monotonic()
+    for expired_id in list(SESSION_STORE):
+        if SESSION_STORE[expired_id]["expires_at"] <= now:
+            del SESSION_STORE[expired_id]
+    if len(SESSION_STORE) >= MAX_CHALLENGES:
+        del SESSION_STORE[next(iter(SESSION_STORE))]
+    SESSION_STORE[session_id] = {"passive_score": passive_score, "expires_at": now + CHALLENGE_TTL_SECONDS}
+    return session_id
+
 
 def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
     timestamp = time.strftime("%H:%M:%S", time.localtime())
@@ -137,11 +170,12 @@ def add_event(message: str, severity: str = "INFO", component: str = "SYSTEM"):
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/detector.pkl"))
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
 STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../static"))
+DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 
 # Helper for audio file validation
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".ogg", ".mp3"}
 def validate_audio_file(file: UploadFile):
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
@@ -151,10 +185,21 @@ def validate_audio_file(file: UploadFile):
     file.file.seek(0, 2)
     size = file.file.tell()
     file.file.seek(0)
-    if size > 10 * 1024 * 1024:
+    if size > MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
     if size == 0:
         raise HTTPException(status_code=400, detail="Empty file uploaded.")
+    try:
+        info = soundfile.info(file.file)
+        if info.frames <= 0:
+            raise ValueError("Audio has no samples")
+    except (ValueError, RuntimeError, soundfile.LibsndfileError) as exc:
+        raise HTTPException(status_code=422, detail="Unable to decode the uploaded audio.") from exc
+    finally:
+        file.file.seek(0)
+    if info.duration > MAX_AUDIO_SECONDS:
+        raise HTTPException(status_code=413, detail="Audio is longer than 120 seconds.")
+
 
 @app.on_event("startup")
 def startup_event():
@@ -194,7 +239,9 @@ def get_classifier():
 @app.post("/verify-passive", response_model=PassiveVerifyResponse, summary="Passive Voice Deepfake Check", description="Passively analyzes 1.5s rolling audio frames using speaker-independent Logistic Regression classification.")
 async def verify_passive(
     file: UploadFile = File(..., description="Audio chunk to analyze (WAV/FLAC/MP3/OGG)."),
-    degradation: str = Query("none", enum=["none", "amr", "opus", "packet_loss", "combined"], description="Channel condition profile to apply.")
+    degradation: Literal["none", "amr", "opus", "packet_loss", "combined"] = Query(
+        "none", description="Channel condition profile to apply."
+    )
 ):
     """
     Passively monitors live call audio chunks.
@@ -243,13 +290,12 @@ async def verify_passive(
         probs = clf.predict_proba(features)[0]
         passive_score = float(probs[1])
         
-        trigger_challenge = passive_score < 0.7943  # Using the calibrated clean baseline threshold
+        trigger_challenge = passive_score < PASSIVE_THRESHOLD  # Using the calibrated clean baseline threshold
         status = "SUSPICIOUS" if trigger_challenge else "CLEAN"
         
         session_id = None
         if trigger_challenge:
-            session_id = str(uuid.uuid4())
-            SESSION_STORE[session_id] = {'passive_score': passive_score}
+            session_id = create_challenge_session(passive_score)
         
         add_event(f"Passive evaluation complete. Score: {passive_score:.4f} | Verdict: {status}", "WARNING" if trigger_challenge else "SUCCESS", "PASSIVE_MONITOR")
         
@@ -276,8 +322,8 @@ async def verify_passive(
             "session_id": session_id
         }
     except Exception as e:
-        add_event(f"Passive monitor prediction failure: {str(e)}", "ERROR", "PASSIVE_MONITOR")
-        raise HTTPException(status_code=500, detail=f"Feature extraction or prediction error: {str(e)}")
+        add_event("Passive monitor prediction failed.", "ERROR", "PASSIVE_MONITOR")
+        raise HTTPException(status_code=500, detail="Feature extraction or prediction failed.") from e
     finally:
         if os.path.exists(temp_path):
             try:
@@ -287,15 +333,17 @@ async def verify_passive(
 
 @app.get("/challenge/request", response_model=ChallengeRequestResponse, summary="Request Dynamic Prompt", description="Generates a spontaneous phrase challenge for context-binding caller verification.")
 @app.post("/challenge/request", response_model=ChallengeRequestResponse)
-def get_challenge(session_id: str = Form(..., description="Session ID")):
-    """Generates a random challenge phrase for dynamic verification."""
-    if session_id not in SESSION_STORE:
-        raise HTTPException(status_code=400, detail="Invalid or missing session_id")
-        
-    phrase = generate_challenge_phrase()
-    SESSION_STORE[session_id]['phrase'] = phrase
-    
-    add_event(f"Generated dynamic challenge prompt: '{phrase}' for session {session_id[:8]}", "INFO", "CHALLENGE_ENGINE")
+async def get_challenge(session_id: str = Form(..., description="Session ID")):
+    """Issue one phrase until the session expires or its response is consumed."""
+    session = SESSION_STORE.get(session_id)
+    if not session or session["expires_at"] <= time.monotonic():
+        SESSION_STORE.pop(session_id, None)
+        raise HTTPException(status_code=400, detail="Invalid or expired session.")
+    if "phrase" not in session:
+        session["phrase"] = generate_challenge_phrase()
+        add_event("Generated dynamic challenge prompt.", "INFO", "CHALLENGE_ENGINE")
+
+    phrase = session["phrase"]
     return {
         "challenge_phrase": phrase,
         "instructions": "Prompt the caller to speak/respond to this phrase exactly."
@@ -314,8 +362,12 @@ async def verify_challenge(
     add_event(f"Received user challenge response audio: {file.filename}", "INFO", "CHALLENGE_ENGINE")
     
     session_data = SESSION_STORE.get(session_id)
-    if not session_data or 'phrase' not in session_data:
-        raise HTTPException(status_code=400, detail="Invalid session or challenge not requested.")
+    if not session_data or session_data["expires_at"] <= time.monotonic():
+        SESSION_STORE.pop(session_id, None)
+        raise HTTPException(status_code=400, detail="Invalid or expired session.")
+    if "phrase" not in session_data:
+        raise HTTPException(status_code=400, detail="Challenge not requested.")
+    del SESSION_STORE[session_id]
         
     phrase = session_data['phrase']
     passive_score = session_data['passive_score']
@@ -328,7 +380,7 @@ async def verify_challenge(
         add_event("Evaluating acoustic features of challenge response...", "INFO", "CHALLENGE_ENGINE")
         res = score_response(temp_path, phrase, model_path=MODEL_PATH)
         
-        add_event(f"Offline Whisper transcription complete: '{res['transcript']}'", "INFO", "CHALLENGE_ENGINE")
+        add_event("Offline Whisper transcription complete.", "INFO", "CHALLENGE_ENGINE")
         add_event(f"Voice footprint score: {res['voice_authenticity_score']:.4f} | Content alignment score: {res['content_adherence_score']:.4f}", "INFO", "CHALLENGE_ENGINE")
         
         if res['replay_attack_detected']:
@@ -364,19 +416,19 @@ async def verify_challenge(
             "final_status": fstatus
         }
     except Exception as e:
-        add_event(f"Challenge verification failure: {str(e)}", "ERROR", "CHALLENGE_ENGINE")
-        raise HTTPException(status_code=500, detail=f"Verification failure: {str(e)}")
+        add_event("Challenge verification failed.", "ERROR", "CHALLENGE_ENGINE")
+        raise HTTPException(status_code=500, detail="Challenge verification failed.") from e
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
 @app.get("/events", response_model=list[EventLogEntry], summary="Session Events Log", description="Exposes server-side logs for events tracking.")
 def get_events():
-    return SESSION_EVENTS
+    return list(SESSION_EVENTS)
 
 @app.get("/history", response_model=list[CallHistoryEntry], summary="Call History Log", description="Exposes all past verification attempts in this session.")
 def get_history():
-    return SESSION_HISTORY
+    return list(SESSION_HISTORY)
 
 @app.get("/system-status", response_model=SystemStatusResponse, summary="System Status Indicator", description="Returns models loading states, uptime, and last-check timestamp.")
 def get_system_status():
@@ -388,196 +440,130 @@ def get_system_status():
         "last_checked_timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     }
 
-@app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data", description="Returns structured evaluation matrices and channel degradation benchmarks.")
+def read_degradation_rows(path: Path) -> list[DegradationRow]:
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        cells = [part.strip().replace("**", "") for part in line.strip().strip("|").split("|")]
+        if not line.startswith("|") or len(cells) != 7:
+            continue
+        condition, threshold, accuracy_ci, eer, auc, accuracy_drop, eer_increase = cells
+        if condition == "Channel Condition" or condition.startswith("---"):
+            continue
+
+        accuracy_match = re.match(r"^(\d+(?:\.\d+)?)%", accuracy_ci)
+        if accuracy_match is None:
+            raise ValueError("Invalid accuracy in degradation table")
+
+        rows.append(DegradationRow(
+            condition=condition,
+            threshold=float(threshold),
+            accuracy=float(accuracy_match[1]) / 100,
+            accuracy_ci=accuracy_ci,
+            eer=float(eer.removesuffix("%")) / 100,
+            auc=float(auc),
+            accuracy_drop=0.0 if accuracy_drop == "-" else float(accuracy_drop.removesuffix("%")) / 100,
+            eer_increase=0.0 if eer_increase == "-" else float(eer_increase.removesuffix("%")) / 100,
+        ))
+    if not rows:
+        raise ValueError("No degradation results found")
+    return rows
+
+
+@app.get("/results/summary", response_model=ResultsSummaryResponse, summary="Results Summary Data")
 def get_results_summary():
-    # 1. Load confusion matrices dynamically
-    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-    cm_path = os.path.join(docs_dir, "confusion_matrices.json")
-    
-    # Defaults in case of parsing errors or first run
-    confusion_matrices = {
-        "clean": {"tp": 16, "tn": 98, "fp": 27, "fn": 0},
-        "amr": {"tp": 15, "tn": 87, "fp": 38, "fn": 1},
-        "combined": {"tp": 13, "tn": 103, "fp": 22, "fn": 3}
-    }
-    if os.path.exists(cm_path):
-        try:
-            import json
-            with open(cm_path, "r") as f:
-                confusion_matrices = json.load(f)
-        except Exception as e:
-            print(f"Error loading confusion matrices JSON: {e}")
-            
-    # 2. Parse results_degraded.md dynamically
-    benchmarks_path = os.path.join(docs_dir, "results_degraded.md")
-    degradation_benchmarks = []
-    if os.path.exists(benchmarks_path):
-        try:
-            with open(benchmarks_path, "r") as f:
-                lines = f.readlines()
-            for line in lines:
-                if line.startswith("|") and "Channel Condition" not in line and "---| " not in line and "---|--" not in line and "---" not in line:
-                    parts = [p.strip() for p in line.split("|") if p.strip() != ""]
-                    if len(parts) >= 5:
-                        condition = parts[0].replace("**", "")
-                        threshold_str = parts[1]
-                        
-                        raw_acc_ci = parts[2].replace("**", "")
-                        base_acc_str = raw_acc_ci.split("±")[0].replace("%", "").strip()
-                        
-                        eer_str = parts[3].replace("**", "").replace("%", "")
-                        auc_str = parts[4].replace("**", "")
-                        
-                        acc_drop_str = parts[5].replace("%", "") if len(parts) > 5 else "-"
-                        eer_inc_str = parts[6].replace("+", "").replace("%", "") if len(parts) > 6 else "-"
-                        
-                        try:
-                            threshold = float(threshold_str) if threshold_str != "-" else 0.5
-                            accuracy = float(base_acc_str) / 100.0 if base_acc_str != "-" else 0.0
-                            eer = float(eer_str) / 100.0 if eer_str != "-" else 0.0
-                            auc = float(auc_str) if auc_str != "-" else 0.0
-                            accuracy_drop = float(acc_drop_str) / 100.0 if (acc_drop_str != "-" and acc_drop_str != "" and acc_drop_str != " ") else 0.0
-                            eer_increase = float(eer_inc_str) / 100.0 if (eer_inc_str != "-" and eer_inc_str != "" and eer_inc_str != " ") else 0.0
-                            
-                            degradation_benchmarks.append(
-                                DegradationRow(
-                                    condition=condition,
-                                    threshold=threshold,
-                                    accuracy=accuracy,
-                                    accuracy_ci=raw_acc_ci,
-                                    eer=eer,
-                                    auc=auc,
-                                    accuracy_drop=accuracy_drop,
-                                    eer_increase=eer_increase
-                                )
-                            )
-                        except Exception as parse_err:
-                            pass
-        except Exception as e:
-            print(f"Error parsing results_degraded.md: {e}")
-            
-    # Fallback to defaults if parsing returned empty
-    if not degradation_benchmarks:
-        degradation_benchmarks = [
-            DegradationRow(condition="Clean Baseline", threshold=0.7943, accuracy=0.809, accuracy_ci="80.9% ± 6.5%", eer=0.0592, auc=0.9870, accuracy_drop=0.0, eer_increase=0.0),
-            DegradationRow(condition="AMR-NB Codec", threshold=0.9791, accuracy=0.723, accuracy_ci="72.3% ± 7.4%", eer=0.1265, auc=0.9645, accuracy_drop=0.085, eer_increase=0.0673),
-            DegradationRow(condition="GSM Codec (Cellular)", threshold=0.1863, accuracy=0.766, accuracy_ci="76.6% ± 7.0%", eer=0.1818, auc=0.9420, accuracy_drop=0.043, eer_increase=0.1225)
-        ]
-        
-    return {
-        "confusion_matrices": confusion_matrices,
-        "degradation_benchmarks": degradation_benchmarks
-    }
+    try:
+        matrices = json.loads((DOCS_DIR / "confusion_matrices.json").read_text(encoding="utf-8"))
+        if not matrices:
+            raise ValueError("No confusion matrices found")
+        return ResultsSummaryResponse(
+            confusion_matrices=matrices,
+            degradation_benchmarks=read_degradation_rows(DOCS_DIR / "results_degraded.md"),
+        )
+    except (OSError, ValueError, TypeError) as exc:
+        logging.getLogger(__name__).warning("Could not read evaluation summary: %s", exc)
+        raise HTTPException(status_code=503, detail="Evaluation summary artifacts are unavailable.") from exc
 
-@app.get("/results/sensitivity", response_model=list[SensitivityRow], summary="Threshold Sensitivity", description="Returns Accuracy, FPR, and FNR across thresholds 0.1 to 0.9.")
+
+@app.get("/results/sensitivity", response_model=list[SensitivityRow], summary="Threshold Sensitivity")
 def get_results_sensitivity():
-    docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-    sensitivity_path = os.path.join(docs_dir, "threshold_sensitivity.json")
-    if os.path.exists(sensitivity_path):
-        try:
-            import json
-            with open(sensitivity_path, "r") as f:
-                data = json.load(f)
-                return data
-        except Exception as e:
-            print(f"Error loading threshold_sensitivity.json: {e}")
-            
-    # Fallback default values
-    return [
-        {"threshold": 0.1, "accuracy": 0.50, "fpr": 0.50, "fnr": 0.0},
-        {"threshold": 0.3, "accuracy": 0.65, "fpr": 0.35, "fnr": 0.0},
-        {"threshold": 0.5, "accuracy": 0.75, "fpr": 0.25, "fnr": 0.0},
-        {"threshold": 0.7, "accuracy": 0.80, "fpr": 0.20, "fnr": 0.05},
-        {"threshold": 0.9, "accuracy": 0.70, "fpr": 0.10, "fnr": 0.40}
-    ]
+    try:
+        data = TypeAdapter(list[SensitivityRow]).validate_json(
+            (DOCS_DIR / "threshold_sensitivity.json").read_bytes()
+        )
+        if not data:
+            raise ValueError("No sensitivity results found")
+        return data
+    except (OSError, ValueError) as exc:
+        logging.getLogger(__name__).warning("Could not read sensitivity results: %s", exc)
+        raise HTTPException(status_code=503, detail="Threshold sensitivity artifacts are unavailable.") from exc
 
-# WebSocket Real-Time Audio Streaming Endpoint
+
+def score_webm_window(data, classifier):
+    ffmpeg = get_ffmpeg_path()
+    if not ffmpeg:
+        return None
+    with tempfile.TemporaryDirectory(prefix="voxguard-stream-") as directory:
+        container = Path(directory) / "input.webm"
+        wav = Path(directory) / "window.wav"
+        container.write_bytes(data)
+        try:
+            subprocess.run([
+                ffmpeg, "-nostdin", "-protocol_whitelist", "file,pipe", "-f", "webm",
+                "-i", str(container), "-t", "10", "-ar", "16000", "-ac", "1", "-f", "wav", str(wav),
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8, check=True)
+            features = extract_features(wav, feature_type="mfcc", use_cache=False).reshape(1, -1)
+            return float(classifier.predict_proba(features)[0][1])
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+            return None
+
+
 @app.websocket("/stream")
-async def websocket_stream(websocket: WebSocket):
+async def websocket_stream(websocket: WebSocket, segments: bool = False):
     await websocket.accept()
-    clf = get_classifier()
-    
-    # Running byte array to hold streamed audio chunks
-    audio_bytes_accumulator = bytearray()
+    if CLF is None:
+        await websocket.close(code=1013)
+        return
+    classifier = CLF
+    audio = bytearray()
     chunk_counter = 0
-    
-    print("WebSocket client connected for real-time verification.")
-    
     try:
         while True:
-            # Receive binary chunk from client mic stream
-            data = await websocket.receive_bytes()
-            audio_bytes_accumulator.extend(data)
+            data = await asyncio.wait_for(websocket.receive_bytes(), timeout=30)
+            if len(data) > MAX_STREAM_FRAME_BYTES:
+                await websocket.close(code=1009)
+                return
             chunk_counter += 1
-            
-            # Analyze every ~1.5 seconds of accumulated audio chunks
-            # If the user streams at 44.1kHz or standard compressed sizes,
-            # we run inference once we've collected enough bytes (e.g. > 48KB of data)
-            if len(audio_bytes_accumulator) >= 64000:
-                # Write current buffer to a temp container file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_input:
-                    temp_input.write(audio_bytes_accumulator)
-                    temp_input_path = temp_input.name
-                
-                temp_wav_path = temp_input_path.replace(".webm", ".wav")
-                
-                # Convert buffer to a standard WAV (16kHz mono) using ffmpeg
-                ffmpeg_cmd = get_ffmpeg_path()
-                if ffmpeg_cmd:
-                    cmd = [
-                        ffmpeg_cmd, "-y", "-i", temp_input_path,
-                        "-ar", "16000", "-ac", "1", "-f", "wav", temp_wav_path
-                    ]
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-                # Verify converted WAV file exists
-                if os.path.exists(temp_wav_path):
-                    try:
-                        # Extract features and predict
-                        features = extract_features(temp_wav_path, feature_type="mfcc", use_cache=False)
-                        features = features.reshape(1, -1)
-                        
-                        probs = clf.predict_proba(features)[0]
-                        passive_score = float(probs[1]) # Prob of being Real
-                        
-                        # Send back score JSON
-                        await websocket.send_json({
-                            "chunk_id": chunk_counter,
-                            "passive_authenticity_score": round(passive_score, 4),
-                            "trigger_challenge": passive_score < 0.5,
-                            "status": "SUSPICIOUS" if passive_score < 0.5 else "CLEAN"
-                        })
-                    except Exception as e:
-                        # Keep connection alive even on single chunk decoding failure
-                        pass
-                    finally:
-                        try:
-                            os.remove(temp_wav_path)
-                        except:
-                            pass
-                
-                try:
-                    os.remove(temp_input_path)
-                except:
-                    pass
-                
-                # Keep a sliding window: discard older bytes to prevent buffer growth
-                # Retain the last ~32KB to allow overlapping feature extraction windows
-                audio_bytes_accumulator = audio_bytes_accumulator[-32000:]
-                
+            if segments:
+                window = data
+            else:
+                audio.extend(data)
+                if len(audio) < 64000:
+                    continue
+                window = bytes(audio)
+                audio = audio[-32000:]
+            score = await run_in_threadpool(score_webm_window, window, classifier)
+            if score is not None:
+                suspicious = score < PASSIVE_THRESHOLD
+                await websocket.send_json({
+                    "chunk_id": chunk_counter,
+                    "passive_authenticity_score": round(score, 4),
+                    "trigger_challenge": suspicious,
+                    "status": "SUSPICIOUS" if suspicious else "CLEAN",
+                    "session_id": create_challenge_session(score) if suspicious else None,
+                })
+    except TimeoutError:
+        await websocket.close(code=1001)
     except WebSocketDisconnect:
-        print("WebSocket client disconnected.")
-    except Exception as e:
-        print(f"WebSocket execution error: {e}")
+        return
+
 
 # Serve the data directory statically at /data
 if os.path.exists(DATA_DIR):
     app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 # Serve the docs directory statically at /docs
-docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
-if os.path.exists(docs_dir):
-    app.mount("/docs", StaticFiles(directory=docs_dir), name="docs")
+if DOCS_DIR.is_dir():
+    app.mount("/docs", StaticFiles(directory=DOCS_DIR), name="docs")
 
 # Serve the frontend static directory at the root /
 if not os.path.exists(STATIC_DIR):

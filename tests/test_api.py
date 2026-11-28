@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import subprocess
 import requests
@@ -57,14 +58,13 @@ def main():
     print("TESTING API ENDPOINTS (REAL ASVSPOOF AUDIO)")
     print("==================================================")
     
-    base_url = "http://127.0.0.1:8080"
+    base_url = "http://127.0.0.1:8765"
     proc = None
     
     # 1. Locate real human vs spoof audio files
     real_wav, fake_wav = find_real_dataset_files()
     if not real_wav or not fake_wav:
-        print("Error: Could not locate real ASVspoof audio files. Run download_dataset_subset.py first.")
-        return
+        raise SystemExit("ASVspoof audio missing. See docs/DOWNLOAD_DATA.md.")
         
     print(f"Located real Human audio: {os.path.basename(real_wav)}")
     print(f"Located real Spoof audio: {os.path.basename(fake_wav)}")
@@ -75,9 +75,9 @@ def main():
     else:
         env = os.environ.copy()
         env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        python_exe = os.path.abspath(os.path.join(os.path.dirname(__file__), "../venv/Scripts/python.exe"))
+        python_exe = sys.executable
         
-        cmd = [python_exe, "-m", "uvicorn", "src.pipeline.api:app", "--host", "127.0.0.1", "--port", "8080"]
+        cmd = [python_exe, "-m", "uvicorn", "src.pipeline.api:app", "--host", "127.0.0.1", "--port", "8765"]
         print(f"Starting FastAPI server on {base_url} (waiting for PyTorch and Whisper initialization)...")
         proc = subprocess.Popen(cmd, env=env)
         
@@ -94,8 +94,9 @@ def main():
             time.sleep(2.0)
             
         if not server_ready or proc.poll() is not None:
-            print("Error: Server failed to start.")
-            return
+            proc.terminate()
+            proc.wait(timeout=10)
+            raise SystemExit("VoxGuard test server failed to start.")
 
     try:
         # --- Endpoint 1: Verify Passive (Real Human Voice) ---

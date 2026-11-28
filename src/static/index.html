@@ -1173,6 +1173,7 @@
         let currentSessionId = null;
         let ws = null;
         let isStreaming = false;
+        let streamSegmentTimer = null;
         let activePresetIndex = 0;
 
         // Preset Library Scenarios mapping
@@ -1236,6 +1237,23 @@
             }
         }
 
+        function createEventRow(time, component, message, severity) {
+            const row = document.createElement("div");
+            row.className = `event-item ${severity.toLowerCase()}`;
+            const fields = [
+                ["event-time", time],
+                ["event-comp", component],
+                ["event-msg", message],
+            ];
+            fields.forEach(([className, value]) => {
+                const field = document.createElement("span");
+                field.className = className;
+                field.textContent = value;
+                row.appendChild(field);
+            });
+            return row;
+        }
+
         // Add local client logs to event log immediately
         function addClientLog(comp, msg, severity="INFO") {
             const box = document.getElementById("soc-events-box");
@@ -1244,10 +1262,7 @@
             if (placeholder) placeholder.remove();
 
             const timeStr = new Date().toLocaleTimeString();
-            const div = document.createElement("div");
-            div.className = `event-item ${severity.toLowerCase()}`;
-            div.innerHTML = `<span class="event-time">${timeStr}</span><span class="event-comp">${comp}</span><span class="event-msg">${msg}</span>`;
-            box.appendChild(div);
+            box.appendChild(createEventRow(timeStr, comp, msg, severity));
             box.scrollTop = box.scrollHeight;
         }
 
@@ -1266,10 +1281,7 @@
                         const box = document.getElementById("soc-events-box");
                         box.innerHTML = "";
                         events.forEach(e => {
-                            const div = document.createElement("div");
-                            div.className = `event-item ${e.severity.toLowerCase()}`;
-                            div.innerHTML = `<span class="event-time">${e.timestamp}</span><span class="event-comp">${e.component}</span><span class="event-msg">${e.message}</span>`;
-                            box.appendChild(div);
+                            box.appendChild(createEventRow(e.timestamp, e.component, e.message, e.severity));
                         });
                         box.scrollTop = box.scrollHeight;
                         lastEventCount = events.length;
@@ -1323,18 +1335,20 @@
                     list.forEach(row => {
                         const tr = document.createElement("tr");
                         const badgeClass = row.verdict.includes("CLEAN") ? "pill-clean" : "pill-blocked";
-                        const passScore = row.passive_score ? Math.round(row.passive_score * 100) + "%" : "—";
+                        const passScore = row.passive_score !== null ? Math.round(row.passive_score * 100) + "%" : "—";
                         const chalScore = row.challenge_score !== null ? Math.round(row.challenge_score * 100) + "%" : "—";
                         const finalScore = row.final_score !== null ? Math.round(row.final_score * 100) + "%" : "—";
                         
-                        tr.innerHTML = `
-                            <td class="monospace">${row.timestamp}</td>
-                            <td>${row.filename}</td>
-                            <td class="monospace">${passScore}</td>
-                            <td class="monospace">${chalScore}</td>
-                            <td class="monospace" style="font-weight: 700;">${finalScore}</td>
-                            <td><span class="pill-badge ${badgeClass}">${row.verdict}</span></td>
-                        `;
+                        [row.timestamp, row.filename, passScore, chalScore, finalScore].forEach((value, index) => {
+                            const cell = tr.insertCell();
+                            cell.classList.toggle("monospace", index !== 1);
+                            if (index === 4) cell.style.fontWeight = "700";
+                            cell.textContent = value;
+                        });
+                        const verdict = document.createElement("span");
+                        verdict.className = `pill-badge ${badgeClass}`;
+                        verdict.textContent = row.verdict;
+                        tr.insertCell().appendChild(verdict);
                         tbody.appendChild(tr);
                     });
                 }
@@ -1384,30 +1398,38 @@
             if (cachedResults) return;
             try {
                 const res = await fetch("/results/summary");
-                if (res.ok) {
-                    cachedResults = await res.json();
-                    
-                    // Render degradation benchmarks table
-                    const tableBody = document.getElementById("benchmarks-table-rows");
-                    tableBody.innerHTML = "";
-                    cachedResults.degradation_benchmarks.forEach(b => {
-                        const tr = document.createElement("tr");
-                        tr.innerHTML = `
-                            <td><strong>${b.condition}</strong></td>
-                            <td class="monospace">${b.threshold}</td>
-                            <td class="monospace">${b.accuracy_ci}</td>
-                            <td class="monospace">${(b.eer * 100).toFixed(2)}%</td>
-                            <td class="monospace">${b.auc.toFixed(4)}</td>
-                            <td class="monospace">${(b.accuracy_drop * 100).toFixed(1)}%</td>
-                            <td class="monospace">+${(b.eer_increase * 100).toFixed(2)}%</td>
-                        `;
-                        tableBody.appendChild(tr);
-                    });
-                    
-                    // Render default CM (clean)
-                    renderCM("clean");
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
                 }
+                cachedResults = await res.json();
+
+                // Render degradation benchmarks table
+                const tableBody = document.getElementById("benchmarks-table-rows");
+                tableBody.innerHTML = "";
+                cachedResults.degradation_benchmarks.forEach(b => {
+                    const tr = document.createElement("tr");
+                    const values = [
+                        b.condition, b.threshold, b.accuracy_ci,
+                        `${(b.eer * 100).toFixed(2)}%`, b.auc.toFixed(4),
+                        `${(b.accuracy_drop * 100).toFixed(1)}%`,
+                        `${(b.eer_increase * 100).toFixed(2)}%`
+                    ];
+                    values.forEach((value, index) => {
+                        const cell = tr.insertCell();
+                        cell.classList.toggle("monospace", index > 0);
+                        cell.textContent = value;
+                    });
+                    tableBody.appendChild(tr);
+                });
+
+                // Render default CM (clean)
+                renderCM("clean");
             } catch (err) {
+                const row = document.getElementById("benchmarks-table-rows").insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 7;
+                cell.textContent = "Evaluation artifacts are unavailable.";
+                document.getElementById("benchmarks-table-rows").replaceChildren(row);
                 console.error("Results extraction error:", err);
             }
         }
@@ -1685,47 +1707,64 @@
 
         // Live WebSockets stream audio flow
         async function startStreamingMic() {
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            ws = new WebSocket(`${protocol}//${window.location.host}/stream`);
-            
-            ws.onopen = () => {
-                setStepProgress(1, "active");
-            };
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                currentPassiveScore = data.passive_authenticity_score;
-                setGaugeScore(currentPassiveScore);
-                
-                if (data.trigger_challenge) {
-                    toggleStreamingMic(); // Halt stream on trigger to execute challenge
-                    triggerManualChallenge();
-                }
-            };
-            
+            if (!MediaRecorder.isTypeSupported("audio/webm")) {
+                throw new Error("This browser cannot record WebM audio.");
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             visualizerStream = stream;
             startOscilloscope(stream);
-            
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = async (event) => {
-                if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-                    const arrayBuffer = await event.data.arrayBuffer();
-                    ws.send(arrayBuffer);
+
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const socket = new WebSocket(`${protocol}//${window.location.host}/stream?segments=true`);
+            const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+            ws = socket;
+            mediaRecorder = recorder;
+
+            function recordSegment() {
+                if (!isStreaming || ws !== socket || socket.readyState !== WebSocket.OPEN) return;
+                recorder.start();
+                streamSegmentTimer = setTimeout(() => {
+                    if (recorder.state === "recording") recorder.stop();
+                }, 1600);
+            }
+
+            socket.onopen = () => {
+                setStepProgress(1, "active");
+                recordSegment();
+            };
+            socket.onclose = () => {
+                if (ws === socket && isStreaming) toggleStreamingMic();
+            };
+            socket.onmessage = async (event) => {
+                if (ws !== socket) return;
+                const data = JSON.parse(event.data);
+                currentPassiveScore = data.passive_authenticity_score;
+                currentSessionId = data.session_id;
+                setGaugeScore(currentPassiveScore);
+                if (data.trigger_challenge && currentSessionId) {
+                    await toggleStreamingMic();
+                    await triggerManualChallenge();
                 }
             };
-            mediaRecorder.start(500); // 500ms slices
+            recorder.ondataavailable = (event) => {
+                if (isStreaming && event.data.size && socket.readyState === WebSocket.OPEN) {
+                    socket.send(event.data);
+                }
+            };
+            recorder.onstop = recordSegment;
         }
 
         function stopStreamingMic() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
+            clearTimeout(streamSegmentTimer);
+            streamSegmentTimer = null;
+            if (mediaRecorder?.state === "recording") mediaRecorder.stop();
             if (visualizerStream) {
                 visualizerStream.getTracks().forEach(track => track.stop());
+                visualizerStream = null;
             }
-            if (ws) ws.close();
+            const socket = ws;
+            ws = null;
+            if (socket) socket.close();
             stopOscilloscope();
         }
 
@@ -1738,6 +1777,7 @@
                     btn.classList.add("btn-recording");
                     btn.innerText = "Stop Stream";
                 } catch (err) {
+                    stopStreamingMic();
                     console.error("Streaming mic activation failed:", err);
                 }
             } else {
